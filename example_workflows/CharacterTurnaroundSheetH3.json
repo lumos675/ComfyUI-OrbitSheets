@@ -1,5 +1,5 @@
 {
-  "id": "70111429-1257-4a50-a764-b6716a083b5f",
+  "id": "792dfde1-c2f0-444e-b1fb-e7b0c17ba6cb",
   "revision": 0,
   "last_node_id": 73,
   "last_link_id": 39,
@@ -9,11 +9,11 @@
       "type": "PrimitiveStringMultiline",
       "pos": [
         0,
-        0
+        211.0
       ],
       "size": [
-        350,
-        60
+        340,
+        70
       ],
       "flags": {},
       "order": 0,
@@ -44,11 +44,11 @@
       "type": "PrimitiveStringMultiline",
       "pos": [
         0,
-        250
+        321.0
       ],
       "size": [
-        350,
-        60
+        340,
+        70
       ],
       "flags": {},
       "order": 1,
@@ -77,12 +77,12 @@
       "id": 20,
       "type": "UNETLoader",
       "pos": [
-        0,
-        500
+        1840,
+        230.0
       ],
       "size": [
-        350,
-        84
+        340,
+        94
       ],
       "flags": {},
       "order": 2,
@@ -111,12 +111,12 @@
       "id": 21,
       "type": "CLIPLoader",
       "pos": [
-        0,
-        750
+        920,
+        151.0
       ],
       "size": [
-        350,
-        109
+        340,
+        118
       ],
       "flags": {},
       "order": 3,
@@ -146,12 +146,12 @@
       "id": 22,
       "type": "VAELoader",
       "pos": [
-        0,
-        1000
+        2300,
+        91.0
       ],
       "size": [
-        350,
-        60
+        340,
+        70
       ],
       "flags": {},
       "order": 4,
@@ -179,12 +179,12 @@
       "id": 27,
       "type": "EmptyLatentImage",
       "pos": [
-        0,
-        1250
+        1840,
+        364.0
       ],
       "size": [
-        350,
-        109
+        340,
+        118
       ],
       "flags": {},
       "order": 5,
@@ -214,12 +214,12 @@
       "id": 40,
       "type": "UNETLoader",
       "pos": [
-        0,
-        1500
+        4600,
+        96.0
       ],
       "size": [
-        350,
-        84
+        340,
+        94
       ],
       "flags": {},
       "order": 6,
@@ -248,12 +248,12 @@
       "id": 41,
       "type": "CLIPLoader",
       "pos": [
-        0,
-        1750
+        3220,
+        0.0
       ],
       "size": [
-        350,
-        109
+        340,
+        118
       ],
       "flags": {},
       "order": 7,
@@ -283,12 +283,12 @@
       "id": 42,
       "type": "VAELoader",
       "pos": [
-        0,
-        2000
+        3220,
+        158.0
       ],
       "size": [
-        350,
-        60
+        340,
+        70
       ],
       "flags": {},
       "order": 8,
@@ -317,12 +317,12 @@
       "id": 45,
       "type": "RandomNoise",
       "pos": [
-        0,
-        2250
+        4140,
+        175.0
       ],
       "size": [
-        350,
-        84
+        340,
+        94
       ],
       "flags": {},
       "order": 9,
@@ -351,12 +351,12 @@
       "id": 46,
       "type": "KSamplerSelect",
       "pos": [
-        0,
-        2500
+        4140,
+        309.0
       ],
       "size": [
-        350,
-        60
+        340,
+        70
       ],
       "flags": {},
       "order": 10,
@@ -383,12 +383,12 @@
       "id": 51,
       "type": "VAELoader",
       "pos": [
-        0,
-        2750
+        4600,
+        436.0
       ],
       "size": [
-        350,
-        60
+        340,
+        70
       ],
       "flags": {},
       "order": 11,
@@ -416,12 +416,12 @@
       "id": 23,
       "type": "StringConcatenate",
       "pos": [
-        430,
-        0
+        460,
+        218.0
       ],
       "size": [
-        350,
-        159
+        340,
+        166
       ],
       "flags": {},
       "order": 12,
@@ -468,11 +468,11 @@
       "id": 30,
       "type": "OrbitSheetsCharacterPrompt",
       "pos": [
-        430,
-        250
+        3220,
+        268.0
       ],
       "size": [
-        350,
+        340,
         334
       ],
       "flags": {},
@@ -539,12 +539,12 @@
       "id": 39,
       "type": "LoraLoaderModelOnly",
       "pos": [
-        430,
-        500
+        5060,
+        242.0
       ],
       "size": [
-        350,
-        109
+        340,
+        118
       ],
       "flags": {},
       "order": 14,
@@ -579,12 +579,12 @@
       "id": 24,
       "type": "StringConcatenate",
       "pos": [
-        860,
-        0
+        920,
+        309.0
       ],
       "size": [
-        350,
-        134
+        340,
+        142
       ],
       "flags": {},
       "order": 15,
@@ -623,12 +623,12 @@
       "id": 73,
       "type": "LoraLoaderModelOnly",
       "pos": [
-        860,
-        250
+        6440,
+        297.0
       ],
       "size": [
-        350,
-        109
+        340,
+        118
       ],
       "flags": {},
       "order": 16,
@@ -663,12 +663,12 @@
       "id": 25,
       "type": "CLIPTextEncode",
       "pos": [
-        1290,
-        0
+        1380,
+        242.0
       ],
       "size": [
-        350,
-        109
+        340,
+        118
       ],
       "flags": {},
       "order": 17,
@@ -711,12 +711,12 @@
       "id": 43,
       "type": "MiniMaxH3SigmaShift",
       "pos": [
-        1290,
-        250
+        3680,
+        381.0
       ],
       "size": [
-        350,
-        109
+        340,
+        118
       ],
       "flags": {},
       "order": 18,
@@ -752,12 +752,12 @@
       "id": 26,
       "type": "ConditioningZeroOut",
       "pos": [
-        1720,
-        0
+        1840,
+        120.0
       ],
       "size": [
-        350,
-        60
+        340,
+        70
       ],
       "flags": {},
       "order": 19,
@@ -789,12 +789,12 @@
       "id": 47,
       "type": "BasicScheduler",
       "pos": [
-        1720,
-        250
+        4140,
+        419.0
       ],
       "size": [
-        350,
-        134
+        340,
+        142
       ],
       "flags": {},
       "order": 20,
@@ -829,12 +829,12 @@
       "id": 28,
       "type": "KSampler",
       "pos": [
-        2150,
-        0
+        2300,
+        201.0
       ],
       "size": [
-        350,
-        309
+        340,
+        310
       ],
       "flags": {},
       "order": 21,
@@ -889,12 +889,12 @@
       "id": 29,
       "type": "VAEDecode",
       "pos": [
-        2580,
-        0
+        2760,
+        254.0
       ],
       "size": [
-        350,
-        84
+        340,
+        94
       ],
       "flags": {},
       "order": 22,
@@ -931,12 +931,12 @@
       "id": 44,
       "type": "MiniMaxH3ImageToVideo",
       "pos": [
-        3010,
-        0
+        3680,
+        103.0
       ],
       "size": [
-        350,
-        234
+        340,
+        238
       ],
       "flags": {},
       "order": 23,
@@ -999,12 +999,12 @@
       "id": 48,
       "type": "BasicGuider",
       "pos": [
-        3440,
-        0
+        4140,
+        41.0
       ],
       "size": [
-        350,
-        84
+        340,
+        94
       ],
       "flags": {},
       "order": 24,
@@ -1040,12 +1040,12 @@
       "id": 49,
       "type": "SamplerCustomAdvanced",
       "pos": [
-        3870,
-        0
+        4600,
+        230.0
       ],
       "size": [
-        350,
-        159
+        340,
+        166
       ],
       "flags": {},
       "order": 25,
@@ -1104,12 +1104,12 @@
       "id": 50,
       "type": "VAEDecode",
       "pos": [
-        4300,
-        0
+        5060,
+        108.0
       ],
       "size": [
-        350,
-        84
+        340,
+        94
       ],
       "flags": {},
       "order": 26,
@@ -1146,12 +1146,12 @@
       "id": 52,
       "type": "VAEDecodeAudio",
       "pos": [
-        4300,
-        250
+        5060,
+        400.0
       ],
       "size": [
-        350,
-        84
+        340,
+        94
       ],
       "flags": {},
       "order": 27,
@@ -1188,11 +1188,11 @@
       "id": 60,
       "type": "OrbitSheetsFrameSelect",
       "pos": [
-        4730,
-        0
+        5520,
+        134.0
       ],
       "size": [
-        350,
+        340,
         334
       ],
       "flags": {},
@@ -1252,12 +1252,12 @@
       "id": 72,
       "type": "SaveAudio",
       "pos": [
-        4730,
-        250
+        6440,
+        455.0
       ],
       "size": [
-        350,
-        84
+        340,
+        94
       ],
       "flags": {},
       "order": 29,
@@ -1289,12 +1289,12 @@
       "id": 61,
       "type": "OrbitSheetsContactSheet",
       "pos": [
-        5160,
-        0
+        5980,
+        206.0
       ],
       "size": [
-        350,
-        184
+        340,
+        190
       ],
       "flags": {},
       "order": 30,
@@ -1332,12 +1332,12 @@
       "id": 71,
       "type": "PreviewAny",
       "pos": [
-        5160,
-        250
+        6440,
+        187.0
       ],
       "size": [
-        350,
-        60
+        340,
+        70
       ],
       "flags": {},
       "order": 31,
@@ -1367,12 +1367,12 @@
       "id": 70,
       "type": "SaveImage",
       "pos": [
-        5590,
-        0
+        6440,
+        53.0
       ],
       "size": [
-        350,
-        84
+        340,
+        94
       ],
       "flags": {},
       "order": 32,
@@ -1715,14 +1715,54 @@
       "IMAGE"
     ]
   ],
-  "groups": [],
+  "groups": [
+    {
+      "id": 1,
+      "title": "1 \u00b7 Anchor frame",
+      "bounding": [
+        -46,
+        -1.0,
+        3192,
+        558.0
+      ],
+      "color": "#3f5159",
+      "font_size": 28,
+      "flags": {}
+    },
+    {
+      "id": 2,
+      "title": "2 \u00b7 MiniMax-H3 camera move",
+      "bounding": [
+        3174,
+        -92.0,
+        2272,
+        740.0
+      ],
+      "color": "#39553f",
+      "font_size": 28,
+      "flags": {}
+    },
+    {
+      "id": 3,
+      "title": "3 \u00b7 Pick frames + sheet",
+      "bounding": [
+        5474,
+        -39.0,
+        1352,
+        634.0
+      ],
+      "color": "#5c4a2e",
+      "font_size": 28,
+      "flags": {}
+    }
+  ],
   "config": {},
   "extra": {
     "ds": {
-      "scale": 0.5,
+      "scale": 0.45,
       "offset": [
-        80,
-        80
+        120,
+        120
       ]
     }
   },
