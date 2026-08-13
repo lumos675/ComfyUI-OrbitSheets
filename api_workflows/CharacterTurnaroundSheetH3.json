@@ -230,11 +230,25 @@
       "title": "H3 turbo LoRA (4-step)"
     }
   },
+  "73": {
+    "class_type": "LoraLoaderModelOnly",
+    "inputs": {
+      "lora_name": "Minimax/minimax_h3_ref_lora_rank_256_bf16.safetensors",
+      "strength_model": 1.0,
+      "model": [
+        "39",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "H3 reference LoRA"
+    }
+  },
   "43": {
     "class_type": "MiniMaxH3SigmaShift",
     "inputs": {
       "model": [
-        "39",
+        "73",
         0
       ],
       "shift_video": 12.0,
@@ -294,7 +308,7 @@
         0
       ],
       "scheduler": "simple",
-      "steps": 4,
+      "steps": 8,
       "denoise": 1.0
     }
   },
