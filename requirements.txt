@@ -1,0 +1,3 @@
+# torch, numpy and Pillow already ship with ComfyUI; only the HTTP client is
+# listed, and even that is present on virtually every ComfyUI install.
+requests

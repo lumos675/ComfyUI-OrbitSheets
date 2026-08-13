@@ -1,0 +1,463 @@
+{
+  "10": {
+    "class_type": "PrimitiveStringMultiline",
+    "inputs": {
+      "value": "A 30-year-old woman with cropped black hair, olive skin, wearing a charcoal wool coat over a white shirt"
+    },
+    "_meta": {
+      "title": "Text String (User Prompt)"
+    }
+  },
+  "11": {
+    "class_type": "PrimitiveStringMultiline",
+    "inputs": {
+      "value": "Cinematic, live-action, photographic"
+    },
+    "_meta": {
+      "title": "Visual style"
+    }
+  },
+  "20": {
+    "class_type": "UNETLoader",
+    "inputs": {
+      "unet_name": "Krea2/Krea2_Turbo_convrot_int8mixed.safetensors",
+      "weight_dtype": "default"
+    },
+    "_meta": {
+      "title": "Krea2 model"
+    }
+  },
+  "21": {
+    "class_type": "CLIPLoader",
+    "inputs": {
+      "clip_name": "qwen3vl_4b_fp8_scaled.safetensors",
+      "type": "krea2",
+      "device": "default"
+    },
+    "_meta": {
+      "title": "Krea2 CLIP"
+    }
+  },
+  "22": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "qwen_image_vae.safetensors"
+    },
+    "_meta": {
+      "title": "Krea2 VAE"
+    }
+  },
+  "23": {
+    "class_type": "StringConcatenate",
+    "inputs": {
+      "string_a": [
+        "11",
+        0
+      ],
+      "string_b": [
+        "10",
+        0
+      ],
+      "delimiter": ". "
+    },
+    "_meta": {
+      "title": "Style + subject"
+    }
+  },
+  "24": {
+    "class_type": "StringConcatenate",
+    "inputs": {
+      "string_a": [
+        "23",
+        0
+      ],
+      "string_b": "full body from head to toe, standing straight facing the camera, arms relaxed at sides, neutral expression, plain seamless neutral grey studio backdrop, even soft lighting, no props, no text, no watermark",
+      "delimiter": ", "
+    },
+    "_meta": {
+      "title": "Krea2 prompt"
+    }
+  },
+  "25": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "text": [
+        "24",
+        0
+      ],
+      "clip": [
+        "21",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Krea2 positive"
+    }
+  },
+  "26": {
+    "class_type": "ConditioningZeroOut",
+    "inputs": {
+      "conditioning": [
+        "25",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Krea2 negative"
+    }
+  },
+  "27": {
+    "class_type": "EmptyLatentImage",
+    "inputs": {
+      "width": 544,
+      "height": 960,
+      "batch_size": 1
+    },
+    "_meta": {
+      "title": "Krea2 latent"
+    }
+  },
+  "28": {
+    "class_type": "KSampler",
+    "inputs": {
+      "seed": 0,
+      "steps": 8,
+      "cfg": 1.0,
+      "sampler_name": "euler",
+      "scheduler": "simple",
+      "denoise": 1.0,
+      "model": [
+        "20",
+        0
+      ],
+      "positive": [
+        "25",
+        0
+      ],
+      "negative": [
+        "26",
+        0
+      ],
+      "latent_image": [
+        "27",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Krea2 sampler"
+    }
+  },
+  "29": {
+    "class_type": "VAEDecode",
+    "inputs": {
+      "samples": [
+        "28",
+        0
+      ],
+      "vae": [
+        "22",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Krea2 anchor frame"
+    }
+  },
+  "30": {
+    "class_type": "OrbitSheetsCharacterPrompt",
+    "inputs": {
+      "character_description": [
+        "10",
+        0
+      ],
+      "visual_style": [
+        "11",
+        0
+      ],
+      "orbit_direction": "clockwise",
+      "end_on_closeup": true,
+      "backdrop": "plain seamless neutral grey studio backdrop",
+      "spoken_line": "Hello. My name is written in the story we are about to tell, and this is how my voice sounds when I speak plainly.",
+      "voice_description": "",
+      "language": "English",
+      "silent_during_closeup": true,
+      "ambient_sound": ""
+    },
+    "_meta": {
+      "title": "Turnaround prompt (H3 spec)"
+    }
+  },
+  "40": {
+    "class_type": "UNETLoader",
+    "inputs": {
+      "unet_name": "MinimaxH3/minimax_h3_fl2va_pruned_int8_convrot.safetensors",
+      "weight_dtype": "default"
+    },
+    "_meta": {
+      "title": "H3 fl2va model"
+    }
+  },
+  "41": {
+    "class_type": "CLIPLoader",
+    "inputs": {
+      "clip_name": "qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors",
+      "type": "minimax"
+    },
+    "_meta": {
+      "title": "H3 CLIP"
+    }
+  },
+  "42": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "minimax_h3_video_vae_fp16.safetensors"
+    },
+    "_meta": {
+      "title": "H3 video VAE"
+    }
+  },
+  "39": {
+    "class_type": "LoraLoaderModelOnly",
+    "inputs": {
+      "lora_name": "Minimax/minimax_h3_fl2v_lightx2v_turbo_4step_v0.1_comfy.safetensors",
+      "strength_model": 1.0,
+      "model": [
+        "40",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "H3 turbo LoRA (4-step)"
+    }
+  },
+  "43": {
+    "class_type": "MiniMaxH3SigmaShift",
+    "inputs": {
+      "model": [
+        "39",
+        0
+      ],
+      "shift_video": 12.0,
+      "shift_audio": 3.0
+    },
+    "_meta": {
+      "title": "H3 sigma shift"
+    }
+  },
+  "44": {
+    "class_type": "MiniMaxH3ImageToVideo",
+    "inputs": {
+      "clip": [
+        "41",
+        0
+      ],
+      "vae": [
+        "42",
+        0
+      ],
+      "prompt": [
+        "30",
+        0
+      ],
+      "width": 544,
+      "height": 960,
+      "length": 260,
+      "first_frame": [
+        "29",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "H3 I2VA move"
+    }
+  },
+  "45": {
+    "class_type": "RandomNoise",
+    "inputs": {
+      "noise_seed": 0
+    },
+    "_meta": {
+      "title": "Move noise"
+    }
+  },
+  "46": {
+    "class_type": "KSamplerSelect",
+    "inputs": {
+      "sampler_name": "euler"
+    }
+  },
+  "47": {
+    "class_type": "BasicScheduler",
+    "inputs": {
+      "model": [
+        "43",
+        0
+      ],
+      "scheduler": "simple",
+      "steps": 4,
+      "denoise": 1.0
+    }
+  },
+  "48": {
+    "class_type": "BasicGuider",
+    "inputs": {
+      "model": [
+        "43",
+        0
+      ],
+      "conditioning": [
+        "44",
+        0
+      ]
+    }
+  },
+  "49": {
+    "class_type": "SamplerCustomAdvanced",
+    "inputs": {
+      "noise": [
+        "45",
+        0
+      ],
+      "guider": [
+        "48",
+        0
+      ],
+      "sampler": [
+        "46",
+        0
+      ],
+      "sigmas": [
+        "47",
+        0
+      ],
+      "latent_image": [
+        "44",
+        1
+      ]
+    },
+    "_meta": {
+      "title": "H3 sampler"
+    }
+  },
+  "50": {
+    "class_type": "VAEDecode",
+    "inputs": {
+      "samples": [
+        "49",
+        0
+      ],
+      "vae": [
+        "42",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Frames"
+    }
+  },
+  "60": {
+    "class_type": "OrbitSheetsFrameSelect",
+    "inputs": {
+      "images": [
+        "50",
+        0
+      ],
+      "count": 8,
+      "mode": "vision_llm",
+      "candidates": 20,
+      "keep_first_frame": true,
+      "subject_hint": [
+        "10",
+        0
+      ],
+      "selection_brief": "Choose exactly one tight face close-up, and 7 full-body views at clearly different angles around the figure (front, three-quarter, side profile, rear three-quarter, back).\nPrefer: sharp frames; the whole figure in frame head to toe for the full-body views; angles spread evenly around the circle.\nReject: motion-blurred frames; two views from nearly the same angle; full-body frames where the feet or head are cut off; mid-push frames that are neither a clean full body nor a clean close-up; any frame where the mouth is caught open mid-speech.\nFor the close-up in particular, the mouth must be closed and the expression neutral.",
+      "sharpness_weight": 0.35,
+      "free_vram_first": true,
+      "llm_url": "",
+      "timeout_seconds": 300
+    },
+    "_meta": {
+      "title": "Select frames"
+    }
+  },
+  "61": {
+    "class_type": "OrbitSheetsContactSheet",
+    "inputs": {
+      "images": [
+        "60",
+        0
+      ],
+      "columns": 4,
+      "cell_width": 512,
+      "padding": 8,
+      "label_frames": false,
+      "label_prefix": ""
+    },
+    "_meta": {
+      "title": "Sheet"
+    }
+  },
+  "70": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "filename_prefix": "ComfyUI",
+      "images": [
+        "61",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "SaveImage"
+    }
+  },
+  "71": {
+    "class_type": "PreviewAny",
+    "inputs": {
+      "source": [
+        "60",
+        1
+      ]
+    },
+    "_meta": {
+      "title": "Selection report"
+    }
+  },
+  "51": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "minimax_h3_audio_vae_fp32.safetensors"
+    },
+    "_meta": {
+      "title": "H3 audio VAE"
+    }
+  },
+  "52": {
+    "class_type": "VAEDecodeAudio",
+    "inputs": {
+      "samples": [
+        "49",
+        0
+      ],
+      "vae": [
+        "51",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Voice track"
+    }
+  },
+  "72": {
+    "class_type": "SaveAudio",
+    "inputs": {
+      "audio": [
+        "52",
+        0
+      ],
+      "filename_prefix": "ControlCenter/voice"
+    },
+    "_meta": {
+      "title": "SaveAudio"
+    }
+  }
+}

@@ -1,0 +1,16 @@
+[project]
+name = "comfyui-orbitsheets"
+description = "Character turnaround and location orbit reference sheets from a MiniMax-H3 camera move, with vision-model frame selection."
+version = "0.1.0"
+license = { text = "MIT" }
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = ["requests"]
+
+[project.urls]
+Repository = "https://github.com/lumos675/ComfyUI-OrbitSheets"
+
+[tool.comfy]
+PublisherId = "lumos675"
+DisplayName = "OrbitSheets"
+Icon = ""
