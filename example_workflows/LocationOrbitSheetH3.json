@@ -1,8 +1,8 @@
 {
-  "id": "1eff527d-0e95-47c4-beb7-7f186d542790",
+  "id": "2336af5d-e3ab-4aa3-a274-7785c1acff1d",
   "revision": 0,
-  "last_node_id": 73,
-  "last_link_id": 36,
+  "last_node_id": 74,
+  "last_link_id": 37,
   "nodes": [
     {
       "id": 10,
@@ -26,7 +26,7 @@
           "links": [
             2,
             3,
-            33
+            34
           ],
           "slot_index": 0
         }
@@ -162,7 +162,7 @@
           "name": "VAE",
           "type": "VAE",
           "links": [
-            18
+            19
           ],
           "slot_index": 0
         }
@@ -264,7 +264,7 @@
           "name": "CLIP",
           "type": "CLIP",
           "links": [
-            19
+            20
           ],
           "slot_index": 0
         }
@@ -299,8 +299,8 @@
           "name": "VAE",
           "type": "VAE",
           "links": [
-            20,
-            31
+            21,
+            32
           ],
           "slot_index": 0
         }
@@ -333,7 +333,7 @@
           "name": "NOISE",
           "type": "NOISE",
           "links": [
-            25
+            26
           ],
           "slot_index": 0
         }
@@ -367,7 +367,7 @@
           "name": "SAMPLER",
           "type": "SAMPLER",
           "links": [
-            27
+            28
           ],
           "slot_index": 0
         }
@@ -468,7 +468,7 @@
           "name": "prompt",
           "type": "STRING",
           "links": [
-            21
+            22
           ],
           "slot_index": 0
         },
@@ -588,8 +588,8 @@
       "id": 73,
       "type": "LoraLoaderModelOnly",
       "pos": [
-        6440,
-        340.0
+        5980,
+        333.0
       ],
       "size": [
         340,
@@ -673,15 +673,15 @@
       "title": "Krea2 positive"
     },
     {
-      "id": 43,
-      "type": "MiniMaxH3SigmaShift",
+      "id": 74,
+      "type": "OrbitSheetsAttentionBackend",
       "pos": [
-        3680,
-        357.0
+        6440,
+        352.0
       ],
       "size": [
         340,
-        118
+        94
       ],
       "flags": {},
       "order": 17,
@@ -695,23 +695,21 @@
       ],
       "outputs": [
         {
-          "name": "MODEL",
+          "name": "model",
           "type": "MODEL",
           "links": [
-            12,
-            23
+            12
           ],
           "slot_index": 0
         }
       ],
       "properties": {
-        "Node name for S&R": "MiniMaxH3SigmaShift"
+        "Node name for S&R": "OrbitSheetsAttentionBackend"
       },
       "widgets_values": [
-        12.0,
-        3.0
+        "comfy kitchen (int8)"
       ],
-      "title": "H3 sigma shift"
+      "title": "Attention backend"
     },
     {
       "id": 26,
@@ -751,15 +749,15 @@
       "title": "Krea2 negative"
     },
     {
-      "id": 47,
-      "type": "BasicScheduler",
+      "id": 43,
+      "type": "MiniMaxH3SigmaShift",
       "pos": [
-        4140,
-        395.0
+        3680,
+        357.0
       ],
       "size": [
         340,
-        142
+        118
       ],
       "flags": {},
       "order": 19,
@@ -773,22 +771,23 @@
       ],
       "outputs": [
         {
-          "name": "SIGMAS",
-          "type": "SIGMAS",
+          "name": "MODEL",
+          "type": "MODEL",
           "links": [
-            28
+            17,
+            24
           ],
           "slot_index": 0
         }
       ],
       "properties": {
-        "Node name for S&R": "BasicScheduler"
+        "Node name for S&R": "MiniMaxH3SigmaShift"
       },
       "widgets_values": [
-        "simple",
-        8,
-        1.0
-      ]
+        12.0,
+        3.0
+      ],
+      "title": "H3 sigma shift"
     },
     {
       "id": 28,
@@ -831,7 +830,7 @@
           "name": "LATENT",
           "type": "LATENT",
           "links": [
-            17
+            18
           ],
           "slot_index": 0
         }
@@ -851,6 +850,46 @@
       "title": "Krea2 sampler"
     },
     {
+      "id": 47,
+      "type": "BasicScheduler",
+      "pos": [
+        4140,
+        395.0
+      ],
+      "size": [
+        340,
+        142
+      ],
+      "flags": {},
+      "order": 21,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 17
+        }
+      ],
+      "outputs": [
+        {
+          "name": "SIGMAS",
+          "type": "SIGMAS",
+          "links": [
+            29
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "BasicScheduler"
+      },
+      "widgets_values": [
+        "simple",
+        8,
+        1.0
+      ]
+    },
+    {
       "id": 29,
       "type": "VAEDecode",
       "pos": [
@@ -862,18 +901,18 @@
         94
       ],
       "flags": {},
-      "order": 21,
+      "order": 22,
       "mode": 0,
       "inputs": [
         {
           "name": "samples",
           "type": "LATENT",
-          "link": 17
+          "link": 18
         },
         {
           "name": "vae",
           "type": "VAE",
-          "link": 18
+          "link": 19
         }
       ],
       "outputs": [
@@ -881,7 +920,7 @@
           "name": "IMAGE",
           "type": "IMAGE",
           "links": [
-            22
+            23
           ],
           "slot_index": 0
         }
@@ -904,23 +943,23 @@
         238
       ],
       "flags": {},
-      "order": 22,
+      "order": 23,
       "mode": 0,
       "inputs": [
         {
           "name": "clip",
           "type": "CLIP",
-          "link": 19
+          "link": 20
         },
         {
           "name": "vae",
           "type": "VAE",
-          "link": 20
+          "link": 21
         },
         {
           "name": "prompt",
           "type": "STRING",
-          "link": 21,
+          "link": 22,
           "widget": {
             "name": "prompt"
           }
@@ -928,7 +967,7 @@
         {
           "name": "first_frame",
           "type": "IMAGE",
-          "link": 22
+          "link": 23
         }
       ],
       "outputs": [
@@ -936,7 +975,7 @@
           "name": "positive",
           "type": "CONDITIONING",
           "links": [
-            24
+            25
           ],
           "slot_index": 0
         },
@@ -944,7 +983,7 @@
           "name": "LATENT",
           "type": "LATENT",
           "links": [
-            29
+            30
           ],
           "slot_index": 1
         }
@@ -972,18 +1011,18 @@
         94
       ],
       "flags": {},
-      "order": 23,
+      "order": 24,
       "mode": 0,
       "inputs": [
         {
           "name": "model",
           "type": "MODEL",
-          "link": 23
+          "link": 24
         },
         {
           "name": "conditioning",
           "type": "CONDITIONING",
-          "link": 24
+          "link": 25
         }
       ],
       "outputs": [
@@ -991,7 +1030,7 @@
           "name": "GUIDER",
           "type": "GUIDER",
           "links": [
-            26
+            27
           ],
           "slot_index": 0
         }
@@ -1013,33 +1052,33 @@
         166
       ],
       "flags": {},
-      "order": 24,
+      "order": 25,
       "mode": 0,
       "inputs": [
         {
           "name": "noise",
           "type": "NOISE",
-          "link": 25
+          "link": 26
         },
         {
           "name": "guider",
           "type": "GUIDER",
-          "link": 26
+          "link": 27
         },
         {
           "name": "sampler",
           "type": "SAMPLER",
-          "link": 27
+          "link": 28
         },
         {
           "name": "sigmas",
           "type": "SIGMAS",
-          "link": 28
+          "link": 29
         },
         {
           "name": "latent_image",
           "type": "LATENT",
-          "link": 29
+          "link": 30
         }
       ],
       "outputs": [
@@ -1047,7 +1086,7 @@
           "name": "output",
           "type": "LATENT",
           "links": [
-            30
+            31
           ],
           "slot_index": 0
         },
@@ -1076,18 +1115,18 @@
         94
       ],
       "flags": {},
-      "order": 25,
+      "order": 26,
       "mode": 0,
       "inputs": [
         {
           "name": "samples",
           "type": "LATENT",
-          "link": 30
+          "link": 31
         },
         {
           "name": "vae",
           "type": "VAE",
-          "link": 31
+          "link": 32
         }
       ],
       "outputs": [
@@ -1095,7 +1134,7 @@
           "name": "IMAGE",
           "type": "IMAGE",
           "links": [
-            32
+            33
           ],
           "slot_index": 0
         }
@@ -1118,18 +1157,18 @@
         334
       ],
       "flags": {},
-      "order": 26,
+      "order": 27,
       "mode": 0,
       "inputs": [
         {
           "name": "images",
           "type": "IMAGE",
-          "link": 32
+          "link": 33
         },
         {
           "name": "subject_hint",
           "type": "STRING",
-          "link": 33,
+          "link": 34,
           "widget": {
             "name": "subject_hint"
           }
@@ -1140,7 +1179,7 @@
           "name": "frames",
           "type": "IMAGE",
           "links": [
-            34
+            35
           ],
           "slot_index": 0
         },
@@ -1148,7 +1187,7 @@
           "name": "info",
           "type": "STRING",
           "links": [
-            35
+            36
           ],
           "slot_index": 1
         }
@@ -1175,20 +1214,20 @@
       "type": "OrbitSheetsContactSheet",
       "pos": [
         5980,
-        182.0
+        103.0
       ],
       "size": [
         340,
         190
       ],
       "flags": {},
-      "order": 27,
+      "order": 28,
       "mode": 0,
       "inputs": [
         {
           "name": "images",
           "type": "IMAGE",
-          "link": 34
+          "link": 35
         }
       ],
       "outputs": [
@@ -1196,7 +1235,7 @@
           "name": "sheet",
           "type": "IMAGE",
           "links": [
-            36
+            37
           ],
           "slot_index": 0
         }
@@ -1218,20 +1257,20 @@
       "type": "PreviewAny",
       "pos": [
         6440,
-        230.0
+        242.0
       ],
       "size": [
         340,
         70
       ],
       "flags": {},
-      "order": 28,
+      "order": 29,
       "mode": 0,
       "inputs": [
         {
           "name": "source",
           "type": "STRING",
-          "link": 35
+          "link": 36
         }
       ],
       "outputs": [
@@ -1253,20 +1292,20 @@
       "type": "SaveImage",
       "pos": [
         6440,
-        96.0
+        108.0
       ],
       "size": [
         340,
         94
       ],
       "flags": {},
-      "order": 29,
+      "order": 30,
       "mode": 0,
       "inputs": [
         {
           "name": "images",
           "type": "IMAGE",
-          "link": 36
+          "link": 37
         }
       ],
       "outputs": [
@@ -1363,7 +1402,7 @@
       10,
       73,
       0,
-      43,
+      74,
       0,
       "MODEL"
     ],
@@ -1377,9 +1416,9 @@
     ],
     [
       12,
-      43,
+      74,
       0,
-      47,
+      43,
       0,
       "MODEL"
     ],
@@ -1417,6 +1456,14 @@
     ],
     [
       17,
+      43,
+      0,
+      47,
+      0,
+      "MODEL"
+    ],
+    [
+      18,
       28,
       0,
       29,
@@ -1424,7 +1471,7 @@
       "LATENT"
     ],
     [
-      18,
+      19,
       22,
       0,
       29,
@@ -1432,7 +1479,7 @@
       "VAE"
     ],
     [
-      19,
+      20,
       41,
       0,
       44,
@@ -1440,7 +1487,7 @@
       "CLIP"
     ],
     [
-      20,
+      21,
       42,
       0,
       44,
@@ -1448,7 +1495,7 @@
       "VAE"
     ],
     [
-      21,
+      22,
       30,
       0,
       44,
@@ -1456,7 +1503,7 @@
       "STRING"
     ],
     [
-      22,
+      23,
       29,
       0,
       44,
@@ -1464,7 +1511,7 @@
       "IMAGE"
     ],
     [
-      23,
+      24,
       43,
       0,
       48,
@@ -1472,7 +1519,7 @@
       "MODEL"
     ],
     [
-      24,
+      25,
       44,
       0,
       48,
@@ -1480,7 +1527,7 @@
       "CONDITIONING"
     ],
     [
-      25,
+      26,
       45,
       0,
       49,
@@ -1488,7 +1535,7 @@
       "NOISE"
     ],
     [
-      26,
+      27,
       48,
       0,
       49,
@@ -1496,7 +1543,7 @@
       "GUIDER"
     ],
     [
-      27,
+      28,
       46,
       0,
       49,
@@ -1504,7 +1551,7 @@
       "SAMPLER"
     ],
     [
-      28,
+      29,
       47,
       0,
       49,
@@ -1512,7 +1559,7 @@
       "SIGMAS"
     ],
     [
-      29,
+      30,
       44,
       1,
       49,
@@ -1520,7 +1567,7 @@
       "LATENT"
     ],
     [
-      30,
+      31,
       49,
       0,
       50,
@@ -1528,7 +1575,7 @@
       "LATENT"
     ],
     [
-      31,
+      32,
       42,
       0,
       50,
@@ -1536,7 +1583,7 @@
       "VAE"
     ],
     [
-      32,
+      33,
       50,
       0,
       60,
@@ -1544,7 +1591,7 @@
       "IMAGE"
     ],
     [
-      33,
+      34,
       10,
       0,
       60,
@@ -1552,7 +1599,7 @@
       "STRING"
     ],
     [
-      34,
+      35,
       60,
       0,
       61,
@@ -1560,7 +1607,7 @@
       "IMAGE"
     ],
     [
-      35,
+      36,
       60,
       1,
       71,
@@ -1568,7 +1615,7 @@
       "STRING"
     ],
     [
-      36,
+      37,
       61,
       0,
       70,
@@ -1608,9 +1655,9 @@
       "title": "3 \u00b7 Pick frames + sheet",
       "bounding": [
         5474,
-        4.0,
+        11.0,
         1352,
-        500.0
+        486.0
       ],
       "color": "#5c4a2e",
       "font_size": 28,

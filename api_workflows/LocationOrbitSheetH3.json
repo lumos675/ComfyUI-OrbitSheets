@@ -242,11 +242,24 @@
       "title": "H3 reference LoRA"
     }
   },
+  "74": {
+    "class_type": "OrbitSheetsAttentionBackend",
+    "inputs": {
+      "model": [
+        "73",
+        0
+      ],
+      "attention": "comfy kitchen (int8)"
+    },
+    "_meta": {
+      "title": "Attention backend"
+    }
+  },
   "43": {
     "class_type": "MiniMaxH3SigmaShift",
     "inputs": {
       "model": [
-        "73",
+        "74",
         0
       ],
       "shift_video": 12.0,

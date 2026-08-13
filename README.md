@@ -28,6 +28,7 @@ costs no extra sampling and gives you a voice-timbre reference.
 | **Character Turnaround Prompt (H3)** | Same, for a figure: arc around, then push in to the face. Optional spoken line with `(S1)` / `<d>[Lang] …</d>` tagging |
 | **Frame Select (vision-judged)** | Picks the keepers from the decoded frames |
 | **Contact Sheet** | Lays them out as one grid |
+| **Attention Backend** | Swaps the attention kernel for one model — see below |
 
 ### Interior vs exterior — the setting that matters most
 
@@ -44,6 +45,28 @@ Both modes name a full 360° explicitly. "Reveals the space from every side"
 describes an outcome and the model treats it as flavour; "turns through a
 complete 360-degree rotation" is an instruction about the camera, and it
 follows it.
+
+### Attention backend
+
+Attention dominates a video model's cost: H3 attends over every frame at once,
+so the kernel choice moves wall-clock far more than it would for a still image.
+
+ComfyUI can pick one globally with `--use-ck-attention`, but that's a launch
+flag applying to every workflow on the server. This node patches the model
+object instead, so the choice lives in the graph, changes per run, and can't
+surprise anything else.
+
+Core ships `ModelAttentionBackend`, which patches the same way but offers only
+pytorch and comfy kitchen. This one lists whatever your install has registered
+— sage, flash and xformers included when present — so you don't need a separate
+pack to reach the other kernels.
+
+**comfy kitchen's kernel is int8**: it quantizes the attention computation. It's
+the fastest option and the one to try first, but it's lossy in a way pytorch
+and sage are not. Compare a render before committing. `default (unchanged)`
+leaves the model exactly as the loader produced it and is always safe; a
+backend that isn't installed falls back to the default with a warning rather
+than failing the run.
 
 ### How frames get picked
 

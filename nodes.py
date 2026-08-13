@@ -325,6 +325,122 @@ def _parse_picks(text: str, total: int) -> list[int]:
     return out
 
 
+# ------------------------------------------------------- attention backend
+
+
+#: Shown when a model should be left exactly as the loader produced it.
+_ATTENTION_DEFAULT = "default (unchanged)"
+
+#: Registry names are terse; these read better in a menu. Anything not listed
+#: is offered under its own name, so a backend added to ComfyUI later still
+#: appears here without this pack being updated.
+_ATTENTION_LABELS = {
+    "comfy_kitchen_int8": "comfy kitchen (int8)",
+    "pytorch": "pytorch (SDPA)",
+    "sage": "sage",
+    "sage3": "sage 3",
+    "flash": "flash",
+    "xformers": "xformers",
+    "sub_quad": "sub-quadratic",
+    "split": "split",
+}
+
+
+def _attention_registry() -> dict:
+    """Attention backends this ComfyUI actually has, name -> callable.
+
+    Read live rather than hardcoded: which backends exist depends on what is
+    installed (sage, flash, xformers) and on the launch flags. Empty on a build
+    with no registry, which is what keeps this node harmless there.
+    """
+    try:
+        from comfy.ldm.modules.attention import REGISTERED_ATTENTION_FUNCTIONS
+
+        return dict(REGISTERED_ATTENTION_FUNCTIONS)
+    except Exception:
+        return {}
+
+
+def _attention_choices() -> list:
+    registry = _attention_registry()
+    ordered = [n for n in _ATTENTION_LABELS if n in registry]
+    ordered += [n for n in sorted(registry) if n not in _ATTENTION_LABELS]
+    return [_ATTENTION_DEFAULT] + [_ATTENTION_LABELS.get(n, n) for n in ordered]
+
+
+class LumosAttentionBackend:
+    """Swap the attention kernel for one model, without touching the rest.
+
+    Attention dominates the cost of a video model: H3 attends over every frame
+    at once, so the kernel choice moves wall-clock far more than it would for a
+    still image. ComfyUI can select one globally with `--use-ck-attention`, but
+    that is a launch flag applying to every workflow on the server. Patching
+    the model object instead keeps the choice inside the graph, where it can be
+    changed per run and cannot surprise anything else.
+
+    Core ships `ModelAttentionBackend`, which does the same patching but offers
+    only pytorch and comfy kitchen. This lists whatever is registered — sage,
+    flash and xformers included when they are installed — so there is no need
+    for a separate pack just to reach the other kernels.
+
+    Note that comfy kitchen's kernel is *int8*: it quantizes the attention
+    computation. It is the fastest option here and the one worth trying first,
+    but it is lossy in a way pytorch and sage are not, so compare a render
+    before committing to it.
+
+    Selecting the default leaves the model untouched and is always safe.
+    """
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "model": ("MODEL",),
+                "attention": (_attention_choices(),),
+            },
+        }
+
+    RETURN_TYPES = ("MODEL",)
+    RETURN_NAMES = ("model",)
+    FUNCTION = "patch"
+    CATEGORY = "OrbitSheets"
+
+    @classmethod
+    def VALIDATE_INPUTS(cls, attention):
+        # A graph saved on a box with sage must still load on one without it,
+        # rather than failing validation before the user can change the widget.
+        return True
+
+    def patch(self, model, attention):
+        if attention == _ATTENTION_DEFAULT:
+            return (model,)
+
+        registry = _attention_registry()
+        wanted = next(
+            (name for name, label in _ATTENTION_LABELS.items()
+             if label == attention and name in registry),
+            attention if attention in registry else None,
+        )
+        if wanted is None:
+            logging.warning(
+                "[OrbitSheets] attention backend %r is not available here; "
+                "leaving the model on its default kernel.", attention,
+            )
+            return (model,)
+
+        patched = model.clone()
+        try:
+            patched.set_model_optimized_attention(registry[wanted])
+        except Exception as exc:
+            logging.warning(
+                "[OrbitSheets] this ComfyUI cannot patch attention (%s); "
+                "leaving the model unchanged.", exc,
+            )
+            return (model,)
+        logging.info("[OrbitSheets] attention backend: %s", wanted)
+        return (patched,)
+
+
 # ------------------------------------------------------------------- nodes
 
 
@@ -718,6 +834,7 @@ NODE_CLASS_MAPPINGS = {
     "OrbitSheetsCharacterPrompt": LumosCharacterTurnaroundPrompt,
     "OrbitSheetsFrameSelect": LumosFrameSelect,
     "OrbitSheetsContactSheet": LumosContactSheet,
+    "OrbitSheetsAttentionBackend": LumosAttentionBackend,
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
@@ -725,4 +842,5 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "OrbitSheetsCharacterPrompt": "Character Turnaround Prompt (H3)",
     "OrbitSheetsFrameSelect": "Frame Select (vision-judged)",
     "OrbitSheetsContactSheet": "Contact Sheet",
+    "OrbitSheetsAttentionBackend": "Attention Backend",
 }
