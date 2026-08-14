@@ -1,8 +1,8 @@
 {
   "id": "0a37d782-ed94-41c0-9d18-cdf87c69fa47",
   "revision": 0,
-  "last_node_id": 74,
-  "last_link_id": 40,
+  "last_node_id": 80,
+  "last_link_id": 48,
   "nodes": [
     {
       "id": 10,
@@ -24,9 +24,9 @@
           "name": "STRING",
           "type": "STRING",
           "links": [
-            2,
             3,
-            36
+            36,
+            47
           ],
           "slot_index": 0
         }
@@ -35,43 +35,9 @@
         "Node name for S&R": "PrimitiveStringMultiline"
       },
       "widgets_values": [
-        "A 30-year-old woman with cropped black hair, olive skin, wearing a charcoal wool coat over a white shirt"
+        "A photography of full body of a beautiful blonde american woman with blue eyes age 25 with beautiful body shape wearing a beautiful dress."
       ],
       "title": "Text String (User Prompt)"
-    },
-    {
-      "id": 11,
-      "type": "PrimitiveStringMultiline",
-      "pos": [
-        0,
-        321.0
-      ],
-      "size": [
-        340,
-        70
-      ],
-      "flags": {},
-      "order": 1,
-      "mode": 0,
-      "inputs": [],
-      "outputs": [
-        {
-          "name": "STRING",
-          "type": "STRING",
-          "links": [
-            1,
-            4
-          ],
-          "slot_index": 0
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "PrimitiveStringMultiline"
-      },
-      "widgets_values": [
-        "Cinematic, live-action, photographic"
-      ],
-      "title": "Visual style"
     },
     {
       "id": 20,
@@ -204,8 +170,8 @@
         "Node name for S&R": "EmptyLatentImage"
       },
       "widgets_values": [
-        544,
-        960,
+        1920,
+        1080,
         1
       ],
       "title": "Krea2 latent"
@@ -413,58 +379,6 @@
       "title": "H3 audio VAE"
     },
     {
-      "id": 23,
-      "type": "StringConcatenate",
-      "pos": [
-        460,
-        218.0
-      ],
-      "size": [
-        340,
-        166
-      ],
-      "flags": {},
-      "order": 12,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "string_a",
-          "type": "STRING",
-          "link": 1,
-          "widget": {
-            "name": "string_a"
-          }
-        },
-        {
-          "name": "string_b",
-          "type": "STRING",
-          "link": 2,
-          "widget": {
-            "name": "string_b"
-          }
-        }
-      ],
-      "outputs": [
-        {
-          "name": "STRING",
-          "type": "STRING",
-          "links": [
-            6
-          ],
-          "slot_index": 0
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "StringConcatenate"
-      },
-      "widgets_values": [
-        "",
-        "",
-        ". "
-      ],
-      "title": "Style + subject"
-    },
-    {
       "id": 30,
       "type": "OrbitSheetsCharacterPrompt",
       "pos": [
@@ -486,14 +400,6 @@
           "widget": {
             "name": "character_description"
           }
-        },
-        {
-          "name": "visual_style",
-          "type": "STRING",
-          "link": 4,
-          "widget": {
-            "name": "visual_style"
-          }
         }
       ],
       "outputs": [
@@ -508,13 +414,13 @@
         {
           "name": "soundscape",
           "type": "STRING",
-          "links": null,
+          "links": [],
           "slot_index": 1
         },
         {
           "name": "music",
           "type": "STRING",
-          "links": null,
+          "links": [],
           "slot_index": 2
         }
       ],
@@ -523,13 +429,14 @@
       },
       "widgets_values": [
         "",
-        "Cinematic, live-action",
-        "clockwise",
-        true,
+        "",
         "plain seamless neutral grey studio backdrop",
+        "full body, generous margin",
         "Hello. My name is written in the story we are about to tell, and this is how my voice sounds when I speak plainly.",
         "",
         "English",
+        true,
+        0.75,
         true,
         ""
       ],
@@ -574,50 +481,6 @@
         1.0
       ],
       "title": "H3 turbo LoRA (4-step)"
-    },
-    {
-      "id": 24,
-      "type": "StringConcatenate",
-      "pos": [
-        920,
-        309.0
-      ],
-      "size": [
-        340,
-        142
-      ],
-      "flags": {},
-      "order": 15,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "string_a",
-          "type": "STRING",
-          "link": 6,
-          "widget": {
-            "name": "string_a"
-          }
-        }
-      ],
-      "outputs": [
-        {
-          "name": "STRING",
-          "type": "STRING",
-          "links": [
-            8
-          ],
-          "slot_index": 0
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "StringConcatenate"
-      },
-      "widgets_values": [
-        "",
-        "full body from head to toe, standing straight facing the camera, arms relaxed at sides, neutral expression, plain seamless neutral grey studio backdrop, even soft lighting, no props, no text, no watermark",
-        ", "
-      ],
-      "title": "Krea2 prompt"
     },
     {
       "id": 73,
@@ -677,7 +540,7 @@
         {
           "name": "text",
           "type": "STRING",
-          "link": 8,
+          "link": 48,
           "widget": {
             "name": "text"
           }
@@ -1028,9 +891,9 @@
       },
       "widgets_values": [
         "",
-        544,
-        960,
-        260
+        1216,
+        672,
+        124
       ],
       "title": "H3 I2VA move"
     },
@@ -1129,7 +992,7 @@
         {
           "name": "denoised_output",
           "type": "LATENT",
-          "links": null,
+          "links": [],
           "slot_index": 1
         }
       ],
@@ -1250,6 +1113,11 @@
           "widget": {
             "name": "subject_hint"
           }
+        },
+        {
+          "name": "clip",
+          "type": "CLIP",
+          "link": 42
         }
       ],
       "outputs": [
@@ -1274,16 +1142,22 @@
         "Node name for S&R": "OrbitSheetsFrameSelect"
       },
       "widgets_values": [
-        8,
+        6,
         "vision_llm",
-        20,
-        true,
+        32,
+        false,
         "",
-        "Choose exactly one tight face close-up, and 7 full-body views at clearly different angles around the figure (front, three-quarter, side profile, rear three-quarter, back).\nPrefer: sharp frames; the whole figure in frame head to toe for the full-body views; angles spread evenly around the circle.\nReject: motion-blurred frames; two views from nearly the same angle; full-body frames where the feet or head are cut off; mid-push frames that are neither a clean full body nor a clean close-up; any frame where the mouth is caught open mid-speech.\nFor the close-up in particular, the mouth must be closed and the expression neutral.",
+        "Only used if count is raised above the shot count. Pick additional sharp, well-formed frames that add a genuinely different angle; the six main views (full-body front, face close-up, left profile, right profile, rear, frightened face) are already selected, one per shot.\n\nPrefer: sharp frames; anatomically correct figures with clear, natural eyes and well-formed features.\n\nReject: near-duplicates of a view already selected; motion-blurred frames; frames with bad, distorted, or asymmetrical eyes; frames with broken anatomy, warping, or bad hands/limbs; frames caught mid-cut between two shots; any frame where the mouth is caught open mid-speech.",
         0.35,
         true,
         "",
-        300
+        300,
+        true,
+        400,
+        0.2,
+        6,
+        1,
+        "views (by content)"
       ],
       "title": "Select frames"
     },
@@ -1312,7 +1186,7 @@
         {
           "name": "audio",
           "type": "AUDIO",
-          "links": null,
+          "links": [],
           "slot_index": 0
         }
       ],
@@ -1359,7 +1233,7 @@
         "Node name for S&R": "OrbitSheetsContactSheet"
       },
       "widgets_values": [
-        4,
+        2,
         512,
         8,
         false,
@@ -1392,7 +1266,7 @@
         {
           "name": "STRING",
           "type": "STRING",
-          "links": null,
+          "links": [],
           "slot_index": 0
         }
       ],
@@ -1427,7 +1301,7 @@
         {
           "name": "images",
           "type": "IMAGE",
-          "links": null,
+          "links": [],
           "slot_index": 0
         }
       ],
@@ -1438,39 +1312,172 @@
         "ComfyUI"
       ],
       "title": "SaveImage"
+    },
+    {
+      "id": 75,
+      "type": "PreviewImage",
+      "pos": [
+        2760,
+        424.0
+      ],
+      "size": [
+        340,
+        94
+      ],
+      "flags": {},
+      "order": 34,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 41
+        }
+      ],
+      "outputs": [],
+      "properties": {
+        "Node name for S&R": "PreviewImage"
+      },
+      "widgets_values": [],
+      "title": "Anchor preview"
+    },
+    {
+      "id": 78,
+      "type": "CreateVideo",
+      "pos": [
+        5520,
+        420
+      ],
+      "size": [
+        340,
+        94
+      ],
+      "flags": {},
+      "order": 35,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 43
+        },
+        {
+          "name": "audio",
+          "type": "AUDIO",
+          "link": 44
+        }
+      ],
+      "outputs": [
+        {
+          "name": "VIDEO",
+          "type": "VIDEO",
+          "links": [
+            45
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "CreateVideo"
+      },
+      "widgets_values": [
+        24,
+        8
+      ],
+      "title": "Create video"
+    },
+    {
+      "id": 79,
+      "type": "SaveVideo",
+      "pos": [
+        5920,
+        420
+      ],
+      "size": [
+        340,
+        94
+      ],
+      "flags": {},
+      "order": 36,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "video",
+          "type": "VIDEO",
+          "link": 45
+        }
+      ],
+      "outputs": [],
+      "properties": {
+        "Node name for S&R": "SaveVideo"
+      },
+      "widgets_values": [
+        "video/OrbitSheets",
+        "auto",
+        "auto"
+      ],
+      "title": "Save video"
+    },
+    {
+      "id": 80,
+      "type": "StringConcatenate",
+      "pos": [
+        460,
+        218
+      ],
+      "size": [
+        340,
+        166
+      ],
+      "flags": {},
+      "order": 37,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "string_a",
+          "type": "STRING",
+          "link": 47,
+          "widget": {
+            "name": "string_a"
+          }
+        },
+        {
+          "name": "string_b",
+          "type": "STRING",
+          "link": null,
+          "widget": {
+            "name": "string_b"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "name": "STRING",
+          "type": "STRING",
+          "links": [
+            48
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "StringConcatenate"
+      },
+      "widgets_values": [
+        "",
+        "plain seamless neutral grey studio backdrop, even soft lighting, no props, no text, no watermark",
+        ", "
+      ],
+      "title": "Krea2 backdrop"
     }
   ],
   "links": [
-    [
-      1,
-      11,
-      0,
-      23,
-      0,
-      "STRING"
-    ],
-    [
-      2,
-      10,
-      0,
-      23,
-      1,
-      "STRING"
-    ],
     [
       3,
       10,
       0,
       30,
       0,
-      "STRING"
-    ],
-    [
-      4,
-      11,
-      0,
-      30,
-      1,
       "STRING"
     ],
     [
@@ -1482,28 +1489,12 @@
       "MODEL"
     ],
     [
-      6,
-      23,
-      0,
-      24,
-      0,
-      "STRING"
-    ],
-    [
       7,
       39,
       0,
       73,
       0,
       "MODEL"
-    ],
-    [
-      8,
-      24,
-      0,
-      25,
-      0,
-      "STRING"
     ],
     [
       9,
@@ -1760,6 +1751,62 @@
       70,
       0,
       "IMAGE"
+    ],
+    [
+      41,
+      29,
+      0,
+      75,
+      0,
+      "IMAGE"
+    ],
+    [
+      42,
+      21,
+      0,
+      60,
+      2,
+      "CLIP"
+    ],
+    [
+      43,
+      50,
+      0,
+      78,
+      0,
+      "IMAGE"
+    ],
+    [
+      44,
+      52,
+      0,
+      78,
+      1,
+      "AUDIO"
+    ],
+    [
+      45,
+      78,
+      0,
+      79,
+      0,
+      "VIDEO"
+    ],
+    [
+      47,
+      10,
+      0,
+      80,
+      0,
+      "STRING"
+    ],
+    [
+      48,
+      80,
+      0,
+      25,
+      0,
+      "STRING"
     ]
   ],
   "groups": [

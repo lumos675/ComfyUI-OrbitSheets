@@ -1,8 +1,8 @@
 {
   "id": "2336af5d-e3ab-4aa3-a274-7785c1acff1d",
   "revision": 0,
-  "last_node_id": 74,
-  "last_link_id": 37,
+  "last_node_id": 77,
+  "last_link_id": 42,
   "nodes": [
     {
       "id": 10,
@@ -24,9 +24,9 @@
           "name": "STRING",
           "type": "STRING",
           "links": [
-            2,
             3,
-            34
+            34,
+            42
           ],
           "slot_index": 0
         }
@@ -38,40 +38,6 @@
         "A moonlit stone courtyard ringed by tall cypress trees, worn flagstones, a dry central fountain"
       ],
       "title": "Text String (User Prompt)"
-    },
-    {
-      "id": 11,
-      "type": "PrimitiveStringMultiline",
-      "pos": [
-        0,
-        297.0
-      ],
-      "size": [
-        340,
-        70
-      ],
-      "flags": {},
-      "order": 1,
-      "mode": 0,
-      "inputs": [],
-      "outputs": [
-        {
-          "name": "STRING",
-          "type": "STRING",
-          "links": [
-            1,
-            4
-          ],
-          "slot_index": 0
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "PrimitiveStringMultiline"
-      },
-      "widgets_values": [
-        "Cinematic, live-action, photographic"
-      ],
-      "title": "Visual style"
     },
     {
       "id": 20,
@@ -204,8 +170,8 @@
         "Node name for S&R": "EmptyLatentImage"
       },
       "widgets_values": [
-        960,
-        544,
+        1920,
+        1080,
         1
       ],
       "title": "Krea2 latent"
@@ -380,58 +346,6 @@
       ]
     },
     {
-      "id": 23,
-      "type": "StringConcatenate",
-      "pos": [
-        460,
-        194.0
-      ],
-      "size": [
-        340,
-        166
-      ],
-      "flags": {},
-      "order": 11,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "string_a",
-          "type": "STRING",
-          "link": 1,
-          "widget": {
-            "name": "string_a"
-          }
-        },
-        {
-          "name": "string_b",
-          "type": "STRING",
-          "link": 2,
-          "widget": {
-            "name": "string_b"
-          }
-        }
-      ],
-      "outputs": [
-        {
-          "name": "STRING",
-          "type": "STRING",
-          "links": [
-            6
-          ],
-          "slot_index": 0
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "StringConcatenate"
-      },
-      "widgets_values": [
-        "",
-        "",
-        ". "
-      ],
-      "title": "Style + subject"
-    },
-    {
       "id": 30,
       "type": "OrbitSheetsLocationPrompt",
       "pos": [
@@ -439,8 +353,8 @@
         158.0
       ],
       "size": [
-        340,
-        286
+        360,
+        300
       ],
       "flags": {},
       "order": 12,
@@ -452,14 +366,6 @@
           "link": 3,
           "widget": {
             "name": "location_description"
-          }
-        },
-        {
-          "name": "visual_style",
-          "type": "STRING",
-          "link": 4,
-          "widget": {
-            "name": "visual_style"
           }
         }
       ],
@@ -475,13 +381,13 @@
         {
           "name": "soundscape",
           "type": "STRING",
-          "links": null,
+          "links": [],
           "slot_index": 1
         },
         {
           "name": "music",
           "type": "STRING",
-          "links": null,
+          "links": [],
           "slot_index": 2
         }
       ],
@@ -490,15 +396,18 @@
       },
       "widgets_values": [
         "",
-        "Cinematic, live-action",
+        "",
         "interior",
-        "clockwise",
-        "large amplitude",
-        "slow speed",
+        "cut views",
+        "auto (as far as the take allows)",
+        5.0,
+        false,
+        false,
+        1.0,
         "",
         ""
       ],
-      "title": "Orbit prompt (H3 spec)"
+      "title": "Location sheet prompt (H3 spec)"
     },
     {
       "id": 39,
@@ -539,50 +448,6 @@
         1.0
       ],
       "title": "H3 turbo LoRA (4-step)"
-    },
-    {
-      "id": 24,
-      "type": "StringConcatenate",
-      "pos": [
-        920,
-        285.0
-      ],
-      "size": [
-        340,
-        142
-      ],
-      "flags": {},
-      "order": 14,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "string_a",
-          "type": "STRING",
-          "link": 6,
-          "widget": {
-            "name": "string_a"
-          }
-        }
-      ],
-      "outputs": [
-        {
-          "name": "STRING",
-          "type": "STRING",
-          "links": [
-            8
-          ],
-          "slot_index": 0
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "StringConcatenate"
-      },
-      "widgets_values": [
-        "",
-        "empty of people and vehicles, no text, no watermark",
-        ", "
-      ],
-      "title": "Krea2 prompt"
     },
     {
       "id": 73,
@@ -642,7 +507,7 @@
         {
           "name": "text",
           "type": "STRING",
-          "link": 8,
+          "link": 42,
           "widget": {
             "name": "text"
           }
@@ -993,9 +858,9 @@
       },
       "widgets_values": [
         "",
-        960,
-        544,
-        260
+        1216,
+        672,
+        124
       ],
       "title": "H3 I2VA move"
     },
@@ -1093,7 +958,7 @@
         {
           "name": "denoised_output",
           "type": "LATENT",
-          "links": null,
+          "links": [],
           "slot_index": 1
         }
       ],
@@ -1172,6 +1037,11 @@
           "widget": {
             "name": "subject_hint"
           }
+        },
+        {
+          "name": "clip",
+          "type": "CLIP",
+          "link": 39
         }
       ],
       "outputs": [
@@ -1196,16 +1066,22 @@
         "Node name for S&R": "OrbitSheetsFrameSelect"
       },
       "widgets_values": [
-        8,
+        6,
         "vision_llm",
-        20,
-        true,
+        32,
+        false,
         "",
         "",
         0.35,
         true,
         "",
-        300
+        300,
+        true,
+        400,
+        0.2,
+        6,
+        1,
+        "views (by content)"
       ],
       "title": "Select frames"
     },
@@ -1244,7 +1120,7 @@
         "Node name for S&R": "OrbitSheetsContactSheet"
       },
       "widgets_values": [
-        4,
+        2,
         512,
         8,
         false,
@@ -1277,7 +1153,7 @@
         {
           "name": "STRING",
           "type": "STRING",
-          "links": null,
+          "links": [],
           "slot_index": 0
         }
       ],
@@ -1312,7 +1188,7 @@
         {
           "name": "images",
           "type": "IMAGE",
-          "links": null,
+          "links": [],
           "slot_index": 0
         }
       ],
@@ -1323,39 +1199,115 @@
         "ComfyUI"
       ],
       "title": "SaveImage"
+    },
+    {
+      "id": 75,
+      "type": "PreviewImage",
+      "pos": [
+        2760,
+        400.0
+      ],
+      "size": [
+        340,
+        94
+      ],
+      "flags": {},
+      "order": 31,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 38
+        }
+      ],
+      "outputs": [],
+      "properties": {
+        "Node name for S&R": "PreviewImage"
+      },
+      "widgets_values": [],
+      "title": "Anchor preview"
+    },
+    {
+      "id": 76,
+      "type": "CreateVideo",
+      "pos": [
+        5520,
+        420
+      ],
+      "size": [
+        340,
+        94
+      ],
+      "flags": {},
+      "order": 32,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 40
+        }
+      ],
+      "outputs": [
+        {
+          "name": "VIDEO",
+          "type": "VIDEO",
+          "links": [
+            41
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "CreateVideo"
+      },
+      "widgets_values": [
+        24,
+        8
+      ],
+      "title": "Create video"
+    },
+    {
+      "id": 77,
+      "type": "SaveVideo",
+      "pos": [
+        5920,
+        420
+      ],
+      "size": [
+        340,
+        94
+      ],
+      "flags": {},
+      "order": 33,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "video",
+          "type": "VIDEO",
+          "link": 41
+        }
+      ],
+      "outputs": [],
+      "properties": {
+        "Node name for S&R": "SaveVideo"
+      },
+      "widgets_values": [
+        "video/OrbitSheets",
+        "auto",
+        "auto"
+      ],
+      "title": "Save video"
     }
   ],
   "links": [
-    [
-      1,
-      11,
-      0,
-      23,
-      0,
-      "STRING"
-    ],
-    [
-      2,
-      10,
-      0,
-      23,
-      1,
-      "STRING"
-    ],
     [
       3,
       10,
       0,
       30,
       0,
-      "STRING"
-    ],
-    [
-      4,
-      11,
-      0,
-      30,
-      1,
       "STRING"
     ],
     [
@@ -1367,28 +1319,12 @@
       "MODEL"
     ],
     [
-      6,
-      23,
-      0,
-      24,
-      0,
-      "STRING"
-    ],
-    [
       7,
       39,
       0,
       73,
       0,
       "MODEL"
-    ],
-    [
-      8,
-      24,
-      0,
-      25,
-      0,
-      "STRING"
     ],
     [
       9,
@@ -1621,12 +1557,52 @@
       70,
       0,
       "IMAGE"
+    ],
+    [
+      38,
+      29,
+      0,
+      75,
+      0,
+      "IMAGE"
+    ],
+    [
+      39,
+      21,
+      0,
+      60,
+      2,
+      "CLIP"
+    ],
+    [
+      40,
+      50,
+      0,
+      76,
+      0,
+      "IMAGE"
+    ],
+    [
+      41,
+      76,
+      0,
+      77,
+      0,
+      "VIDEO"
+    ],
+    [
+      42,
+      10,
+      0,
+      25,
+      0,
+      "STRING"
     ]
   ],
   "groups": [
     {
       "id": 1,
-      "title": "1 \u00b7 Anchor frame",
+      "title": "1 · Anchor frame",
       "bounding": [
         -46,
         -25.0,
@@ -1639,7 +1615,7 @@
     },
     {
       "id": 2,
-      "title": "2 \u00b7 MiniMax-H3 camera move",
+      "title": "2 · MiniMax-H3 camera move",
       "bounding": [
         3174,
         -92.0,
@@ -1652,7 +1628,7 @@
     },
     {
       "id": 3,
-      "title": "3 \u00b7 Pick frames + sheet",
+      "title": "3 · Pick frames + sheet",
       "bounding": [
         5474,
         11.0,

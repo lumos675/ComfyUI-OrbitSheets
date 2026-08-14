@@ -9,8 +9,8 @@ pack does.
 
 Four nodes, each covering a step ComfyUI has no answer for:
 
-  * Location Orbit Prompt      writes a location arc-shot prompt to H3's spec
-  * Character Turnaround Prompt  same for a figure, ending on the face
+  * Location Sheet Prompt      writes a 4-view location prompt to H3's spec
+  * Character Turnaround Prompt  same for a figure, plus an expression shot
   * Frame Select               picks the frames worth keeping
   * Contact Sheet              lays them out as a sheet
 
@@ -42,8 +42,98 @@ import torch.nn.functional as F
 #: this many the tiles get too small for it to judge sharpness reliably.
 DEFAULT_CANDIDATES = 16
 
-_CAMERA_AMPLITUDES = ["large amplitude", "small amplitude"]
-_CAMERA_SPEEDS = ["slow speed", "fast speed"]
+#: Framing for the turnaround. Generous margin is the default because it is
+#: the one a reference sheet usually fails without: a dragon's wingspan, a tail
+#: or a held weapon outstretches a 16:9 frame, and H3 faithfully crops whatever
+#: the prompt did not insist stays inside it.
+_FRAMINGS = ["full body, generous margin", "full body, tight"]
+
+_FRAMING_CLAUSES = {
+    "full body, generous margin": (
+        " Every full-body shot is framed with generous empty margin on every "
+        "side of the figure, so that the whole figure and anything extending "
+        "beyond its body stays fully inside the frame at all times. No part "
+        "of the figure may ever touch, cross or be cut off by the edges of "
+        "the frame."
+    ),
+    "full body, tight": (
+        " Every full-body shot is framed with tight cropping, the figure "
+        "nearly filling the frame from edge to edge but never cropped at any "
+        "point."
+    ),
+}
+
+
+#: How far the camera turns, in ascending order. Stating the angle is what
+#: replaces H3's "large/small amplitude" here: the angle *is* the amplitude,
+#: and saying both invites the model to average two instructions. The angle and
+#: the take length between them also fix the speed, so there is no speed widget
+#: either — a turn is written "at slow speed" or it is not written at all.
+_TURNS = [
+    (90.0, "a quarter turn of 90 degrees"),
+    (180.0, "a half turn of 180 degrees"),
+    (360.0, "a complete turn of all 360 degrees"),
+]
+
+#: Degrees per second above which the move stops being a camera move and
+#: becomes a whip. H3's own worked example budgets a full 360 across fifteen
+#: seconds — 24 deg/s — and asking for three times that is what makes the
+#: frames tumble: with no way to turn that fast and stay level, the model
+#: substitutes the roll and tilt it *can* render at that rate. Nothing past
+#: this limit is written into a prompt; `_fit_turn` clamps it first.
+_ROTATION_RATE_LIMIT = 40.0
+
+#: The widget. `None` means "as far as this take can hold", which is the
+#: default because it is the only setting that cannot be wrong. The others say
+#: what they need in the label, since the label is the only documentation a
+#: dropdown ever gets read with.
+_ROTATION_CHOICES = {
+    "auto (as far as the take allows)": None,
+    "quarter turn (90 degrees)": 90.0,
+    "half turn (180 degrees)": 180.0,
+    "full turn (360 degrees, needs a 9s take)": 360.0,
+}
+
+
+def _fit_turn(rotation, take_seconds):
+    """Pick the turn to write. Never returns one the take cannot hold.
+
+    Returns (degrees, phrase, note): `note` is None when the request was
+    honoured and a sentence explaining the clamp when it was not.
+    """
+    span = max(float(take_seconds), 1.0)
+    ceiling = _ROTATION_RATE_LIMIT * span
+    fits = [t for t in _TURNS if t[0] <= ceiling] or _TURNS[:1]
+
+    wanted = _ROTATION_CHOICES.get(rotation, None)
+    if wanted is None:                       # auto, or a stale widget value
+        return fits[-1][0], fits[-1][1], None
+
+    degrees, phrase = next(t for t in _TURNS if t[0] == wanted)
+    if degrees <= ceiling:
+        return degrees, phrase, None
+
+    capped, capped_phrase = fits[-1]
+    return capped, capped_phrase, (
+        f"{rotation} across {span:.1f}s is {degrees / span:.0f} deg/s, past "
+        f"the {_ROTATION_RATE_LIMIT:.0f} deg/s this model holds level. "
+        f"Writing {capped:.0f} degrees instead, which fits. For the full "
+        f"{degrees:.0f}, give the take more frames: {degrees / _ROTATION_RATE_LIMIT:.0f}s "
+        f"needs length {int(round(degrees / _ROTATION_RATE_LIMIT * 24 / 4)) * 4} "
+        f"on MiniMaxH3ImageToVideo, and take_seconds to match."
+    )
+
+#: How long the sheet's video runs, in seconds. 124 frames on H3's 17k+5 grid
+#: is 5.17s at 24fps, and the shots divide that span rather than each taking a
+#: whole second — six shots simply make each one shorter, which H3 follows
+#: perfectly well and which costs no extra frames.
+SHEET_SECONDS = 5.0
+
+
+def _timecode(seconds: float) -> str:
+    """Seconds -> H3's MM:SS.mmm cut marker."""
+    minutes, rest = divmod(seconds, 60.0)
+    return f"{int(minutes):02d}:{rest:06.3f}"
 
 
 # ---------------------------------------------------------------- utilities
@@ -163,6 +253,79 @@ def _descriptors(images: torch.Tensor) -> torch.Tensor:
     small = F.interpolate(gray, size=(16, 16), mode="area").view(gray.shape[0], -1)
     small = small - small.mean(dim=1, keepdim=True)
     return small / (small.std(dim=1, keepdim=True) + 1e-6)
+
+
+def _view_descriptors(images: torch.Tensor) -> torch.Tensor:
+    """A per-frame signature fine enough to tell two camera angles apart.
+
+    Colour is kept and the resolution is higher than `_descriptors` because
+    this one has to separate views a coarse grey thumbnail merges: a left
+    profile from a right profile (mirror images, identical silhouette area) and
+    a front from a back (same outline, different content). Each frame is
+    normalised on its own so the comparison is of layout, not exposure.
+    """
+    small = images.permute(0, 3, 1, 2)                       # B,C,H,W
+    small = F.interpolate(small, size=(32, 32), mode="area")
+    small = small.reshape(small.shape[0], -1)
+    small = small - small.mean(dim=1, keepdim=True)
+    return small / (small.std(dim=1, keepdim=True) + 1e-6)
+
+
+def _cluster_views(images: torch.Tensor, k: int) -> list[list[int]]:
+    """Group frames by what they show, returning k groups of frame indices.
+
+    This is the answer to shot boundaries that move. Splitting the timeline by
+    time — evenly, or even at correctly detected cuts — only works if each
+    slice happens to hold a different view, and across runs it does not: the
+    model gives one view three seconds and another half a second, so two slices
+    come back with the same angle and a third view never reaches the sheet at
+    all. Grouping by appearance cannot make that mistake. Five distinct views
+    are five clusters wherever the cuts happen to fall, and near-duplicate
+    frames land in one cluster instead of consuming two slots.
+
+    Plain k-means over `_view_descriptors`, with farthest-point seeding rather
+    than random, so the same video always yields the same sheet.
+    """
+    total = int(images.shape[0])
+    k = max(1, min(k, total))
+    desc = _view_descriptors(images)
+
+    # Farthest-point seeding: start from the anchor frame and repeatedly take
+    # the frame least like anything seeded so far. That lands one seed on each
+    # genuinely distinct view, which random seeding routinely fails to do —
+    # and it is deterministic, so a re-run reproduces the sheet exactly.
+    seeds = [0]
+    while len(seeds) < k:
+        dist = torch.cdist(desc, desc[seeds]).min(dim=1).values
+        dist[torch.tensor(seeds, device=dist.device)] = -1.0
+        seeds.append(int(torch.argmax(dist).item()))
+    centres = desc[seeds].clone()
+
+    labels = torch.zeros(total, dtype=torch.long)
+    for _ in range(25):
+        labels = torch.cdist(desc, centres).argmin(dim=1)
+        moved = False
+        for c in range(k):
+            members = labels == c
+            if not bool(members.any()):
+                # An emptied cluster would silently cost a view, so re-seed it
+                # on the frame currently worst served by any centre.
+                worst = int(torch.cdist(desc, centres).min(dim=1).values.argmax())
+                centres[c] = desc[worst]
+                moved = True
+                continue
+            mean = desc[members].mean(dim=0)
+            if not torch.allclose(mean, centres[c]):
+                centres[c] = mean
+                moved = True
+        if not moved:
+            break
+
+    labels = torch.cdist(desc, centres).argmin(dim=1)
+    return [
+        [i for i in range(total) if int(labels[i]) == c]
+        for c in range(k)
+    ]
 
 
 def _greedy_spread(images: torch.Tensor, count: int, sharpness_weight: float,
@@ -325,6 +488,44 @@ def _parse_picks(text: str, total: int) -> list[int]:
     return out
 
 
+def _clip_pick(clip, pils, count, hint, brief, max_length, temperature):
+    """Judge the montage with an in-graph vision-language CLIP (Qwen3-VL etc.).
+
+    Mirrors core's `TextGenerate` path — tokenize the instruction with the
+    image attached, autoregressively generate, decode — so the very CLIP that
+    encoded the anchor's prompt can pick the frames, with no external server
+    and no second model resident. Only CLIPs whose tokenizer accepts images
+    and whose model can generate will work; anything else is caught by the
+    caller and falls back to the HTTP path.
+    """
+    labels = [str(i + 1) for i in range(len(pils))]
+    board = _montage(pils, columns=4, cell_width=384, padding=10, labels=labels)
+
+    subject = hint.strip() or "a location"
+    instruction = (
+        f"This is a numbered contact sheet of {len(pils)} frames taken from a "
+        f"single continuous camera move around {subject}. Choose exactly "
+        f"{count} frames that together document the subject best.\n"
+        f"{brief.strip() or DEFAULT_BRIEF}\n"
+        'Reply with JSON only, no prose: {"picks": [numbers], "why": "one short sentence"}'
+    )
+
+    image = _pils_to_tensor([board])
+    tokens = clip.tokenize(instruction, image=image, min_length=1)
+    ids = clip.generate(
+        tokens,
+        do_sample=float(temperature) > 0.0,
+        max_length=int(max_length),
+        temperature=float(temperature),
+        top_k=64,
+        top_p=0.95,
+        min_p=0.05,
+        repetition_penalty=1.05,
+        seed=0,
+    )
+    return clip.decode(ids), "in-graph CLIP"
+
+
 # ------------------------------------------------------- attention backend
 
 
@@ -445,25 +646,68 @@ class LumosAttentionBackend:
 
 
 class LumosOrbitPrompt:
-    """Write H3's camera-move prompt for a location, to the model's own spec.
+    """Write H3's prompt for a location sheet, by rotation or by hard cuts.
 
-    The motion type has to match where the camera stands, and this is the one
-    thing that decides whether the sheet is useful. An *arc shot* circles a
-    subject from outside it — correct for a building or a monument. Inside a
-    room there is nothing to circle, and asking for an arc yields a small
-    sideways drift down the same wall: eight frames of one view, with the wall
-    behind the camera never seen. Interiors need a *pan*, the camera turning on
-    its own axis, which is a separate motion type in H3's vocabulary.
+    A location is not a character, and the turnaround structure that makes the
+    character sheet work is the wrong shape for it. A cut asks the model to
+    re-establish the subject from a camera position it has never seen. For a
+    figure on a plain backdrop that is easy — the model knows what a back looks
+    like. For a specific building it is not: told to cut to "the rear", with no
+    idea what this rear looks like, the model either re-frames the view it
+    already has (the sheet fills with the same facade three times) or invents
+    somewhere else entirely and wanders inside the building.
 
-    Either way the instruction has to name a full 360 degrees explicitly.
-    "Reveals the space from every side" is a description of an outcome, and the
-    model treats it as flavour; "turns through a complete 360-degree rotation"
-    is an instruction about the camera, and it follows it.
+    Rotating the camera is a different matter, and the one move H3 does well
+    here: every frame overlaps the last, so nothing has to be invented, only
+    continued. The first version of this node rotated and produced genuinely
+    different directions — its failure was that the frames tumbled and the
+    horizon rolled, which is a stability problem, not a coverage one.
 
-    H3's guide also asks for motion stated as type + amplitude + speed, a style
-    statement opening the shot, and `N/A` where there is deliberately no sound.
-    It needs telling that nothing moves, too: left to itself it animates flags,
-    water and passers-by, and a reference sheet wants none of that.
+    That tumble had a cause, and it was arithmetic. A complete 360 asked of a
+    124-frame take is 70 degrees a second, against the 24 deg/s of H3's own
+    worked example ("one full rotation across fifteen seconds"), and asking
+    for it "with large amplitude at fast speed" pushed it further still. No
+    camera turns that fast and stays level, so the model rendered the move it
+    could render at that rate: a roll, tilting up into the vault. `_fit_turn`
+    is the answer to that: no angle is ever written into a prompt that the
+    take, at `take_seconds`, cannot hold. Asking for more clamps and says so.
+
+    The wording it replaced made the same failure worse from the other end.
+    "The camera stays level ... and never tilts up, tilts down, rolls or
+    leans" names four of H3's documented motion types — Tilt Up, Tilt Down,
+    Roll Clockwise, Roll Counterclockwise — in a model whose guide asks for
+    what *does* happen, not what does not. The stability constraint is now
+    positive: the horizon stays level, the verticals stay vertical.
+
+    None of which was enough, and the honest verdict on a cathedral interior
+    is that no continuous move beat cuts. A pan rolled at every rate it was
+    tried at; a translational glide held level but only ever went right, and
+    six frames of the same wall sliding past is not a location sheet. Locked
+    tripod frames have no camera motion to get wrong, and that is what won.
+
+    Hence `coverage`:
+
+      * "cut views" (default) — the locked-off shots below. The tumbling is
+        structurally impossible here: every shot is a static frame.
+      * "continuous move" — one unbroken take, the camera panning on the spot
+        (interior) or arcing round the subject (exterior). Kept because it is
+        the only thing that works on a location the model cannot extrapolate,
+        and because Frame Select's view clustering can pull distinct frames
+        out of a take that a cut list would have had to invent.
+
+          [Shot 1] the front, straight on     (the anchor, = the first frame)
+          [Shot 2] the right side, 90 degrees round
+          [Shot 3] the rear, from directly behind
+          [Shot 4] the left side, 90 degrees the other way
+          [Shot 5] a wide view of the whole place
+          [Shot 6] a close look at the main feature
+
+    `space` decides what the continuous move is: inside, the camera pivots on
+    its own axis to reach the wall behind it; outside, it travels round the
+    subject and is told where it stays, not where it may not go.
+
+    It needs telling that nothing moves, too: left to itself the model animates
+    flags, water and passers-by, and a reference sheet wants none of that.
     """
 
     @classmethod
@@ -472,14 +716,37 @@ class LumosOrbitPrompt:
             "required": {
                 "location_description": ("STRING", {"multiline": True, "default": ""}),
                 "visual_style": ("STRING", {"default": "Cinematic, live-action"}),
-                # Decides pan-in-place versus orbit-around. Getting this wrong
-                # is what makes an interior sheet show one wall eight times.
+                # Decides move-around versus shoot-across. Getting this wrong
+                # is what makes an interior sheet show one wall four times.
                 "space": (["interior", "exterior"],),
-                "orbit_direction": (["clockwise", "counterclockwise"],),
-                "amplitude": (_CAMERA_AMPLITUDES,),
-                "speed": (_CAMERA_SPEEDS,),
+                # Cuts first, because cuts are what won. Six locked-off
+                # tripod frames cannot roll, and on a cathedral interior they
+                # beat every continuous move tried against them.
+                "coverage": (["cut views", "continuous move"],),
+                # How far the camera comes round on the continuous move: the
+                # exterior arc, or the interior pan. A turn the take cannot
+                # hold is clamped, not obeyed.
+                "rotation": (list(_ROTATION_CHOICES),),
             },
             "optional": {
+                # The take this prompt is written for, which has to match the
+                # `length` on MiniMaxH3ImageToVideo: 124 frames is 5.17s at
+                # 24fps, 260 frames is 10.8s. It sets the cut times, and it is
+                # what the rotation is rationed against — a full turn wants
+                # the longer take, and is cut down to fit if it does not get
+                # one.
+                "take_seconds": ("FLOAT", {"default": SHEET_SECONDS, "min": 1.0, "max": 30.0, "step": 0.1}),
+                # The fifth shot. Worth having on a big or irregular location
+                # where four orthogonal views miss how the parts sit together,
+                # and worth dropping on a small one, where it is a duplicate.
+                "wide_establishing_shot": ("BOOLEAN", {"default": True}),
+                # The sixth: the closest thing the sheet has to a detail
+                # reference, since every other view is framed at the same
+                # distance and reads the place only as a shape.
+                "detail_shot": ("BOOLEAN", {"default": True}),
+                # Length of each shot but the last, which runs to the end of
+                # the take — six shorter shots fit the same 124 frames.
+                "shot_seconds": ("FLOAT", {"default": 0.75, "min": 0.25, "max": 2.0, "step": 0.05}),
                 "time_of_day": ("STRING", {"default": ""}),
                 "ambient_sound": ("STRING", {"default": ""}),
             },
@@ -490,8 +757,12 @@ class LumosOrbitPrompt:
     FUNCTION = "build"
     CATEGORY = "OrbitSheets"
 
-    def build(self, location_description, visual_style, space, orbit_direction,
-              amplitude, speed, time_of_day="", ambient_sound=""):
+    def build(self, location_description, visual_style, space,
+              coverage="cut views",
+              rotation="auto (as far as the take allows)",
+              take_seconds=SHEET_SECONDS, wide_establishing_shot=True,
+              detail_shot=True, shot_seconds=0.75, time_of_day="",
+              ambient_sound=""):
         description = location_description.strip().rstrip(".")
         style = visual_style.strip().rstrip(".") or "Cinematic, live-action"
         subject = description or "the location"
@@ -501,55 +772,236 @@ class LumosOrbitPrompt:
             f" The time of day is {when} and it does not change." if when else ""
         )
 
-        # Pan turns the camera; arc carries it around something. Inside a
-        # room only the first can reach the wall behind the opening view.
+        # Repeated on every shot. The tumbling frames were the model reading a
+        # moving camera as licence to tilt and roll, so each view is nailed
+        # down as a tripod frame rather than a moment in a move.
+        locked = (
+            "a locked-off static camera at eye level, the horizon level and "
+            "centred, no camera movement of any kind"
+        )
+
         if space == "interior":
-            turn = "left" if orbit_direction == "counterclockwise" else "right"
-            motion = (
-                f"The camera holds its position in the middle of the space and "
-                f"pans {turn} with {amplitude} at {speed}, turning steadily "
-                "through a complete 360-degree rotation in one continuous "
-                "unbroken take. Every wall comes into view in turn, including "
-                "the wall directly behind the opening frame, and the rotation "
-                "carries all the way round until it returns to where it started."
+            # Inside there is nothing to walk around, so the camera crosses to
+            # the far side and shoots back — that is what reveals the wall
+            # behind the opening frame.
+            views = [
+                ("the front wall of the space straight on, shot square from "
+                 "the middle of the room"),
+                ("the right-hand wall of the space straight on, the camera "
+                 "turned 90 degrees from the opening view"),
+                ("the rear wall of the space straight on — the wall directly "
+                 "behind the opening frame — the camera now facing the exact "
+                 "opposite direction to Shot 1, so that none of the wall seen "
+                 "in Shot 1 appears anywhere in this frame"),
+                ("the left-hand wall of the space straight on, the camera "
+                 "turned 90 degrees the other way"),
+            ]
+            overview = (
+                "a wide corner view taking in the whole space at once, shot "
+                "from one corner across to the far corner, the far walls and "
+                "the full width of the floor all inside the frame, showing "
+                "how the walls, floor and ceiling meet. This is the widest "
+                "shot of the sequence"
+            )
+            detail = (
+                "a tight close-up of the surface and construction of the "
+                "space's main feature, the camera close enough that the "
+                "material fills the frame and no wall, floor or sky is "
+                "visible behind it. This is by far the closest shot of the "
+                "sequence and looks nothing like the wide views before it"
             )
         else:
-            motion = (
-                f"The camera performs an arc shot {orbit_direction} around the "
-                f"location, travelling a complete 360-degree circle with "
-                f"{amplitude} at {speed} in one continuous unbroken take. The "
-                "far side of the location — the side hidden in the opening "
-                "frame — is fully revealed before the shot ends."
+            views = [
+                ("the front of the location straight on, the facade square to "
+                 "the camera and entirely inside the frame"),
+                ("the right side of the location straight on, the camera moved "
+                 "90 degrees round, the full side elevation in frame"),
+                ("the rear of the location straight on, shot from directly "
+                 "behind — the side hidden in the opening frame — the camera "
+                 "now facing the exact opposite direction to Shot 1, so that "
+                 "none of the facade seen in Shot 1 appears anywhere in this "
+                 "frame, the full rear elevation filling it instead"),
+                ("the left side of the location straight on, the camera moved "
+                 "90 degrees round the other way, the full side elevation in "
+                 "frame"),
+            ]
+            overview = (
+                "a wide three-quarter establishing view of the whole location "
+                "from further back, front and one side both visible, the "
+                "entire place inside the frame with generous margin"
+            )
+            detail = (
+                "a tight close-up of the main entrance and the wall surface "
+                "around it, the camera close enough that the doorway and its "
+                "masonry fill the frame with no sky and no surrounding "
+                "ground visible. This is by far the closest shot of the "
+                "sequence and looks nothing like the wide views before it"
             )
 
-        prompt = (
-            # Stated once, as its own sentence — see the turnaround node.
-            f"{style}. {subject}. {motion}"
-            f"{when_clause}"
-            " The location is completely empty: no people, no animals and no "
+        if coverage.startswith("continuous"):
+            # Deliberately NOT wrapped in the I2VA <Picture 1> envelope that
+            # the cut path uses. That envelope was found to change the camera
+            # behaviour on this node long before the cut rewrite, and carrying
+            # it into the rotation path is what brought the rolling back: a
+            # cathedral interior pan came out as a spin under the vault. The
+            # plain style-subject-motion sentence is what produces a clean
+            # rotation, and the move is stated in H3's own camera terms —
+            # one move, its direction, its speed, and what stays stable.
+            degrees, turn_phrase, clamped = _fit_turn(rotation, take_seconds)
+            if clamped:
+                logging.warning("[OrbitSheets] %s", clamped)
+
+            # What the turn is *for*, said as the thing that comes into view.
+            if degrees >= 360.0:
+                reveal = (
+                    "Every wall comes into view in turn, including the wall "
+                    "directly behind the opening frame, and the turn carries "
+                    "all the way round to where it started."
+                )
+            elif degrees >= 180.0:
+                reveal = (
+                    "The wall directly behind the opening frame comes fully "
+                    "into view, and the take ends facing it."
+                )
+            else:
+                reveal = (
+                    "The take ends facing the wall to the right of the "
+                    "opening frame, square on."
+                )
+
+            # Positive throughout: H3's guide asks for what happens, and the
+            # wording this replaced listed the model's own Tilt Up / Tilt Down
+            # / Roll motion types under a "never" it does not reliably read.
+            steady = (
+                "The horizon stays level and the vertical lines of the walls "
+                "and pillars stay vertical from the first frame to the last. "
+                "The camera turns on its own axis alone, at one constant "
+                "height, the floor along the bottom of the frame and the "
+                "ceiling along the top exactly as in the opening frame."
+            )
+
+            if space == "interior":
+                motion = (
+                    "The camera holds its position in the middle of the space "
+                    "and pans right at slow speed, one single continuous "
+                    f"unbroken take turning steadily through {turn_phrase} "
+                    f"across the whole take and stopping there. {reveal}"
+                )
+            else:
+                motion = (
+                    "The camera performs an arc shot around the location at "
+                    "slow speed, one single continuous unbroken take travelling "
+                    f"{turn_phrase} around it at a constant radius. "
+                    + ("The far side of the location — the side hidden in the "
+                       "opening frame — is fully revealed before the shot "
+                       "ends. " if degrees >= 180.0 else
+                       "The right-hand side of the location is brought fully "
+                       "into view before the shot ends. ")
+                    + "The camera stays outside at ground level for the whole "
+                    "take, at the same eye-level height and the same distance "
+                    "from the building in every frame."
+                )
+                steady = (
+                    "The horizon stays level and the vertical lines of the "
+                    "walls stay vertical from the first frame to the last."
+                )
+
+            prompt = (
+                f"{style}. {subject}. {motion}"
+                f"{when_clause} {steady} "
+                "The location is completely empty: no people, no animals and "
+                "no vehicles are present, and nothing within the environment "
+                "moves. Lighting, weather and atmosphere stay exactly as "
+                "established. Architecture, materials, colours, and the "
+                "position of every object remain identical from every angle. "
+                "A single continuous take with no cuts, no transitions, no "
+                "on-screen text and no titles."
+            )
+            return (prompt, ambient_sound.strip() or "N/A", "N/A")
+
+        if wide_establishing_shot:
+            views = views + [overview]
+        if detail_shot:
+            views = views + [detail]
+
+        # Same timing rule as the turnaround: each shot but the last runs
+        # `shot_seconds`, the last keeps the remainder, so the shot count can
+        # change without the video needing more frames. Clamped against the
+        # take the user actually rendered, not a fixed five seconds, so a
+        # longer `length` spreads the cuts instead of stacking them all in
+        # the opening half.
+        span = max(float(take_seconds), 1.0)
+        step = max(0.25, min(float(shot_seconds), span / len(views)))
+        at = [_timecode(i * step) for i in range(len(views))]
+
+        shots = [
+            f"[Shot 1] {style}, {views[0]}, {locked}.{when_clause}"
+        ]
+        for index, view in enumerate(views[1:], start=2):
+            shots.append(
+                f" [Shot {index}] At {at[index - 1]}, the shot cuts to "
+                f"{view}, {locked}."
+            )
+
+        body = (
+            "".join(shots)
+            + " Every shot is a different framing of the place and no two "
+            "shots repeat the same view: the camera position, direction and "
+            "distance are visibly different in each one. "
+            "The location is completely empty: no people, no animals and no "
             "vehicles are present, and nothing within the environment moves. "
-            "Lighting, weather and atmosphere stay exactly as established. "
-            "Architecture, materials, colours, and the position of every object "
-            "remain identical from every angle. A single continuous take with no "
-            "cuts, no transitions, no on-screen text and no titles."
+            "Lighting, weather and atmosphere stay exactly as established and "
+            "identical in every shot. Architecture, materials, colours, and the "
+            "position of every object remain identical from every angle — it is "
+            "the same place seen from a different side each time. No on-screen "
+            "text and no titles."
         )
 
         ambient = ambient_sound.strip()
         soundscape = ambient if ambient else "N/A"
+
+        # I2VA per H3's prompt guide: first-frame instruction first, then the
+        # three core fields — the same envelope the character sheet uses, which
+        # is what anchors Shot 1 to the image the sheet starts from.
+        prompt = (
+            "For the target video, at 0.00 seconds into the target video, "
+            "<Picture 1> (from [Shot 1]) is fully referenced.\n\n"
+            f"integrated_multimodal_description: {subject}. {body}\n\n"
+            f"overall_soundscape: {soundscape}\n\n"
+            "non_diegetic_music: N/A"
+        )
+
         return (prompt, soundscape, "N/A")
 
 
 class LumosCharacterTurnaroundPrompt:
-    """Write H3's prompt for a character turnaround that ends on the face.
+    """Write H3's prompt for a 6-shot character turnaround with hard cuts.
 
-    A location wants a plain orbit; a character sheet wants two framings — the
-    full figure from every side, and one tight face. Asking for both in a
-    single continuous move keeps them the same person: a separate close-up run
-    is a separate generation, which is exactly where identity drifts.
+    The reference sheet is one I2VA sequence of six distinct views, each about
+    a second long, joined by hard cuts per H3's prompt guide:
 
-    The order matters. Arc first, push in last: the opening frame is the
-    full-body reference, so the body is anchored and the face is pushed into
-    rather than invented.
+      [Shot 1] full body, facing the camera   (the anchor, = the first frame)
+      [Shot 2] tight close-up of the face
+      [Shot 3] left side profile
+      [Shot 4] right side profile
+      [Shot 5] rear view of the body
+      [Shot 6] the face again, frightened     (optional, `scared_shot`)
+
+    Shot 6 earns its slot by being the one thing the other five cannot show:
+    they are all deliberately neutral, and a neutral face is no use as a
+    reaction reference. Six shots need six seconds, so `length` wants 158
+    frames (~6.6s at 24fps) rather than the 124 a five-shot sheet uses.
+
+    Cuts, not a continuous orbit: a cut forces the model to re-establish the
+    figure at each angle, which is exactly what a turnaround sheet needs, and
+    the identity stays locked because every shot reuses the same description.
+    The first frame from the image model is the full body, so the identity is
+    anchored before the face close-up arrives.
+
+    Framing is its own lever because a 16:9 frame crops wide subjects: a dragon
+    with spread wings, a tail or a held weapon outstretches the shot, and H3
+    will cut off whatever the prompt did not insist stays inside it. The
+    default framing demands generous empty margin on every full-body shot.
     """
 
     @classmethod
@@ -558,18 +1010,29 @@ class LumosCharacterTurnaroundPrompt:
             "required": {
                 "character_description": ("STRING", {"multiline": True, "default": ""}),
                 "visual_style": ("STRING", {"default": "Cinematic, live-action"}),
-                "orbit_direction": (["clockwise", "counterclockwise"],),
-                "end_on_closeup": ("BOOLEAN", {"default": True}),
             },
             "optional": {
                 "backdrop": ("STRING", {"default": "plain seamless neutral grey studio backdrop"}),
+                # Framing + margin. Generous margin is the default because
+                # reference sheets fail on wide subjects (wings, tails) when the
+                # frame crops them.
+                "framing": (_FRAMINGS,),
                 # H3 renders audio alongside video from the same latent, so a
-                # spoken line during the turnaround costs no extra sampling and
+                # spoken line in the opening shot costs no extra sampling and
                 # yields a voice-timbre sample for the story's <Audio N> slot.
                 "spoken_line": ("STRING", {"multiline": True, "default": ""}),
                 "voice_description": ("STRING", {"default": "", "multiline": True}),
                 "language": ("STRING", {"default": "English"}),
                 "silent_during_closeup": ("BOOLEAN", {"default": True}),
+                # Length of each shot but the last, which runs to the end of
+                # the take. 0.75 fits six shots inside the same 124 frames a
+                # five-shot sheet used, and leaves the final shot the longest.
+                "shot_seconds": ("FLOAT", {"default": 0.75, "min": 0.25, "max": 2.0, "step": 0.05}),
+                # A sixth shot: the same face, frightened. An expression
+                # reference is worth a slot because it is the one thing the
+                # other five shots cannot show — they are all deliberately
+                # neutral, and a neutral face is no use for casting a reaction.
+                "scared_shot": ("BOOLEAN", {"default": True}),
                 "ambient_sound": ("STRING", {"default": ""}),
             },
         }
@@ -579,22 +1042,19 @@ class LumosCharacterTurnaroundPrompt:
     FUNCTION = "build"
     CATEGORY = "OrbitSheets"
 
-    def build(self, character_description, visual_style, orbit_direction,
-              end_on_closeup, backdrop="plain seamless neutral grey studio backdrop",
+    def build(self, character_description, visual_style,
+              backdrop="plain seamless neutral grey studio backdrop",
+              framing="full body, generous margin",
               spoken_line="", voice_description="", language="English",
-              silent_during_closeup=True, ambient_sound=""):
+              silent_during_closeup=True, scared_shot=True, shot_seconds=0.75,
+              ambient_sound=""):
         description = character_description.strip().rstrip(".")
         style = visual_style.strip().rstrip(".") or "Cinematic, live-action"
         subject = description or "the character"
         set_dressing = backdrop.strip().rstrip(".") or "plain seamless neutral grey studio backdrop"
         # It opens a sentence, so it has to read like one.
         set_dressing = set_dressing[0].upper() + set_dressing[1:]
-
-        closeup = (
-            " After completing the circle the camera pushes in slowly to a tight "
-            "close-up of the face, framed from the top of the hair to the chin."
-            if end_on_closeup else ""
-        )
+        margin = _FRAMING_CLAUSES.get(framing, _FRAMING_CLAUSES[_FRAMINGS[0]])
 
         line = spoken_line.strip()
         speaks = bool(line)
@@ -602,22 +1062,12 @@ class LumosCharacterTurnaroundPrompt:
         if speaks:
             voice = voice_description.strip().rstrip(".")
             voice_clause = f" The voice is {voice}." if voice else ""
-            # Speech is confined to the arc. The close-up is the frame most
-            # worth having clean, and a mouth caught mid-phoneme ruins it —
-            # whereas at full-body scale the mouth is a few pixels wide.
-            hush = (
-                " As the camera begins to push in the figure finishes speaking, "
-                "closes their mouth and holds a still, neutral expression for "
-                "the whole close-up."
-                if (silent_during_closeup and end_on_closeup) else ""
-            )
-            # The guide says to keep the line's own punctuation inside <d>, so
-            # only add a full stop when the line does not already end in one.
+            # The guide keeps the line's own punctuation inside <d>, so only
+            # add a full stop when the line does not already end in one.
             tail = "" if line[-1] in ".!?…\"'" else "."
             speech = (
-                f" While the camera circles, the figure (S1) speaks calmly and "
-                f"directly to camera, saying <d>[{language}] {line}</d>{tail}"
-                f"{voice_clause}{hush}"
+                f" The figure (S1) speaks calmly and directly to camera, saying "
+                f"<d>[{language}] {line}</d>{tail}{voice_clause}"
             )
             # Speaking is motion; the stillness rule has to allow for it or the
             # two instructions contradict and the model picks one at random.
@@ -634,36 +1084,78 @@ class LumosCharacterTurnaroundPrompt:
             speech = ""
             stillness = (
                 " The figure stands still in a neutral upright pose with arms "
-                "relaxed at the sides, and does not move, walk, gesture, turn, "
-                "or change expression at any point."
+                "relaxed at the sides, and does not move, walk, gesture or "
+                "turn at any point" + (
+                    ", and holds a neutral expression until the final shot."
+                    if scared_shot else
+                    ", or change expression at any point."
+                )
             )
             ambient = ambient_sound.strip() or "N/A"
 
-        body = (
-            # The description is stated once, as its own sentence. Repeating it
-            # inside the camera sentence spends context on nothing and reads as
-            # two subjects to the encoder.
-            f"{style}. Full-body turnaround of a single standing figure. "
-            f"{subject}. The camera performs "
-            f"an arc shot {orbit_direction} around the figure with large "
-            "amplitude at slow speed, circling to show the front, both side "
-            f"profiles and the back."
-            f"{closeup}"
-            f"{speech}"
-            f"{stillness} "
-            f"{set_dressing}, even neutral lighting from every side, no props "
-            "and no cast shadows. Clothing, hair, colours, proportions and every "
-            "visible detail remain identical from every angle. A single "
-            "continuous take with no cuts, no transitions, no on-screen text "
-            "and no titles."
+        # The mouth stays closed on every shot except the opening one, so the
+        # face close-up and profiles come out clean.
+        mouth = (
+            ", the mouth closed and a still, neutral expression"
+            if silent_during_closeup else
+            " with a still, neutral expression"
         )
 
-        # The guide's three-field shape, matching what the app's prompt
-        # compiler emits so both halves of the pipeline read the same.
+        # The expression reference. It has to name the face's features rather
+        # than the emotion alone — "scared" on its own gets read as a whole
+        # performance, and the figure starts flinching and turning away, which
+        # breaks the locked framing every other shot depends on.
+        # The turnaround views are static, so they need no more than a moment
+        # each: the first shots run `shot_seconds` and the last one takes
+        # whatever is left of the take. Adding the expression shot therefore
+        # costs no extra frames — it just eats into the final shot's slack —
+        # and the expression shot is the one worth the extra length anyway,
+        # being the only one where the face has to settle into something.
+        total_shots = 6 if scared_shot else 5
+        step = max(0.25, min(float(shot_seconds), SHEET_SECONDS / total_shots))
+        at = [_timecode(i * step) for i in range(total_shots)]
+
+        scared = (
+            f" [Shot 6] At {at[5]}, the shot cuts to a medium close-up of the "
+            "face and shoulders, still facing the camera, the expression now "
+            "frightened: eyes wide and brows raised and drawn together, mouth "
+            "slightly open, the head held still and upright. Only the "
+            "expression changes — the figure does not flinch, recoil, turn "
+            "away or move, and the framing and lighting stay as before."
+        ) if scared_shot else ""
+
+        body = (
+            f"[Shot 1] {style}, a full-body shot frames {subject}, the entire "
+            f"figure visible from head to toe, facing the camera.{margin}"
+            f"{speech}{stillness}"
+            f" [Shot 2] At {at[1]}, the shot cuts to a tight close-up of the "
+            f"face, framed from the top of the hair to the chin, still facing "
+            f"the camera{mouth}."
+            f" [Shot 3] At {at[2]}, the shot cuts to a left side profile of "
+            f"the full figure, the whole body visible from head to toe with "
+            f"the same framing margin, the head turned to show the left "
+            f"profile{mouth}."
+            f" [Shot 4] At {at[3]}, the shot cuts to a right side profile of "
+            f"the full figure, the whole body visible from head to toe with "
+            f"the same framing margin, the head turned to show the right "
+            f"profile{mouth}."
+            f" [Shot 5] At {at[4]}, the shot cuts to a rear view of the full "
+            f"figure, the back of the body visible from head to toe with the "
+            f"same framing margin{mouth}."
+            f"{scared}"
+            f" {set_dressing}, even neutral lighting from every side, no props "
+            "and no cast shadows. Clothing, hair, colours, proportions and "
+            "every visible detail remain identical across every shot."
+        )
+
+        # I2VA per H3's prompt guide: first-frame instruction first, then the
+        # three core fields, matching what the app's compiler emits.
         prompt = (
-            f"{body}\n\n"
-            f"overall_soundscape:\n{ambient}\n\n"
-            f"non_diegetic_music:\nN/A"
+            "For the target video, at 0.00 seconds into the target video, "
+            "<Picture 1> (from [Shot 1]) is fully referenced.\n\n"
+            f"integrated_multimodal_description: {body}\n\n"
+            f"overall_soundscape: {ambient}\n\n"
+            "non_diegetic_music: N/A"
         )
         return (prompt, ambient, "N/A")
 
@@ -673,13 +1165,16 @@ class LumosFrameSelect:
 
     Even spacing is the obvious approach and the wrong one: an orbit is not
     uniform, and evenly-spaced samples land on blurred mid-swing frames and on
-    pairs that show the same wall twice. This shortlists by time, then has the
-    vision model compare the shortlist as one image and say which views
-    actually differ and which are sharp.
+    pairs that show the same wall twice. This shortlists by time, gates out the
+    soft frames, then has a vision model compare the survivors as one image and
+    say which views actually differ and which are sharp.
 
-    Falls back to sharpness-and-spread scoring whenever the vision model is
-    not there — which, given the model is unloaded on every tab switch, is a
-    normal state and not an error.
+    The judging model is whichever one is available, in order of preference:
+    an in-graph vision-language CLIP connected to `clip` (the same Qwen3-VL
+    that encoded the anchor — no external server, no second model resident),
+    then an OpenAI-compatible HTTP endpoint, then plain sharpness-and-spread
+    scoring when neither model is reachable. The report in `info` names the
+    path that actually ran.
     """
 
     @classmethod
@@ -691,6 +1186,10 @@ class LumosFrameSelect:
                 "mode": (["vision_llm", "sharpness_diversity"],),
             },
             "optional": {
+                # An in-graph vision-language CLIP — the same Qwen3-VL that
+                # encoded the anchor. When connected, the node judges the
+                # montage itself instead of calling an HTTP server.
+                "clip": ("CLIP",),
                 "candidates": ("INT", {"default": DEFAULT_CANDIDATES, "min": 4, "max": 32}),
                 "keep_first_frame": ("BOOLEAN", {"default": True}),
                 "subject_hint": ("STRING", {"default": "", "multiline": True}),
@@ -702,6 +1201,29 @@ class LumosFrameSelect:
                 "free_vram_first": ("BOOLEAN", {"default": True}),
                 "llm_url": ("STRING", {"default": ""}),
                 "timeout_seconds": ("INT", {"default": 180, "min": 10, "max": 1800}),
+                # Only sharp frames are shown to the vision model: the
+                # Laplacian already found the mid-swing blurs, so the model's
+                # judgement goes to framing and angle instead.
+                "sharpness_gate": ("BOOLEAN", {"default": True}),
+                "max_length": ("INT", {"default": 400, "min": 64, "max": 4096}),
+                "temperature": ("FLOAT", {"default": 0.2, "min": 0.0, "max": 2.0, "step": 0.05}),
+                # A hard-cut turnaround is a known sequence of static views, so
+                # set this to the shot count to force one sharp frame per shot
+                # — every view (the face close-up included) is then guaranteed
+                # on the sheet no matter what the vision model does. 1 = off.
+                "shots": ("INT", {"default": 1, "min": 1, "max": 32}),
+                # Judge the move through several readable numbered montages
+                # instead of one crowded board: each board covers a time sector
+                # at a readable tile size, so every part of the orbit is seen.
+                # 1 = single montage (the old behaviour).
+                "boards": ("INT", {"default": 1, "min": 1, "max": 16}),
+                # How the `shots` groups are formed. "views" groups frames by
+                # what they show, which is the only one that cannot hand the
+                # sheet the same angle twice — H3 gives its shots wildly
+                # different lengths from run to run, so any split by time
+                # eventually lands two slices on one view and drops another.
+                "shot_split": (["views (by content)", "cuts (detected)",
+                                "even (by time)"],),
             },
         }
 
@@ -710,12 +1232,16 @@ class LumosFrameSelect:
     FUNCTION = "select"
     CATEGORY = "OrbitSheets"
 
-    def select(self, images, count, mode, candidates=DEFAULT_CANDIDATES,
+    def select(self, images, count, mode, clip=None, candidates=DEFAULT_CANDIDATES,
                keep_first_frame=True, subject_hint="", selection_brief="",
                sharpness_weight=0.35, free_vram_first=True, llm_url="",
-               timeout_seconds=180):
+               timeout_seconds=180, sharpness_gate=True, max_length=400,
+               temperature=0.2, shots=1, boards=1,
+               shot_split="views (by content)"):
         total = int(images.shape[0])
         count = max(1, min(int(count), total))
+        shots = max(1, min(int(shots), total))
+        boards = max(1, min(int(boards), 16))
 
         if total <= count:
             return (images, f"kept all {total} frames (asked for {count})")
@@ -724,38 +1250,333 @@ class LumosFrameSelect:
             picked = _greedy_spread(images, count, sharpness_weight, keep_first_frame)
             return (images[picked], self._report("sharpness+spread", picked, total))
 
-        # Shortlist by time so the montage stays readable, keeping the opening
-        # frame when asked: it is the Krea2 reference the orbit was built from.
-        shortlist = self._shortlist(total, max(count, int(candidates)), keep_first_frame)
-        pils = _tensor_to_pils(images[shortlist])
+        # Deterministic base for a known shot layout: one sharp frame per equal
+        # segment. A hard-cut turnaround is a sequence of distinct static views,
+        # so this guarantees every view — the face close-up included — makes the
+        # sheet no matter what the vision model does.
+        forced: list[int] = []
+        found = ""
+        if shots >= 2:
+            if shot_split.startswith("views"):
+                forced, distinct = self._per_view(images, shots)
+                found = " (grouped by view)"
+                if distinct < len(forced):
+                    # Worth saying loudly: the sheet is about to repeat itself,
+                    # and the cause is upstream in the video, not here.
+                    found += (
+                        f" — WARNING: only {distinct} distinct views in these "
+                        f"{total} frames, so {len(forced) - distinct} of the "
+                        "picks repeat one. The take did not deliver "
+                        f"{shots} different shots; re-run it or lower `shots`"
+                    )
+            else:
+                detect = shot_split.startswith("cuts")
+                forced, cuts = self._per_shot(images, shots, detect)
+                if cuts:
+                    found = " (cuts found at %s)" % ", ".join(str(c) for c in cuts)
+                else:
+                    found = " (no cuts found, even slices)" if detect else " (even slices)"
+        remaining = max(0, count - len(forced))
 
-        if free_vram_first:
-            self._free_vram()
-
-        picks, note = _vlm_pick(
-            pils, count, subject_hint, _llm_base_url(llm_url),
-            int(timeout_seconds), selection_brief,
-        )
-
-        if picks is None:
-            picked = _greedy_spread(images, count, sharpness_weight, keep_first_frame)
+        if remaining == 0:
             return (
-                images[picked],
-                self._report(f"sharpness+spread (fallback: {note})", picked, total),
+                images[sorted(forced)],
+                self._report(f"per-shot{found} (no vision)", sorted(forced), total),
             )
 
-        picked = sorted({shortlist[i] for i in picks})
-        # A model that returned too few still gave us its good ones; fill the
-        # remainder by spread rather than discarding its judgement.
-        if len(picked) < count:
-            for index in _greedy_spread(images, count, sharpness_weight, keep_first_frame):
-                if index not in picked:
-                    picked.append(index)
-                if len(picked) >= count:
-                    break
-            picked = sorted(picked)
+        if free_vram_first:
+            # Hand the card back before any judging runs: H3 is still resident,
+            # and a vision model landing on top of it is how the orbit succeeds
+            # and the judging OOMs.
+            self._free_vram()
 
-        return (images[picked], self._report(f"vision model — {note}", picked, total))
+        note = ""
+        picks: list[int] | None = None
+
+        if boards >= 2:
+            # Multi-board scan: every sector of the move gets a readable,
+            # numbered board and contributes its best frames, so no part of the
+            # orbit is invisible to the model the way a single board is.
+            per_board = max(1, (remaining + boards - 1) // boards)
+            picks, note = self._board_scan(
+                images, boards, per_board, clip, subject_hint, selection_brief,
+                llm_url, int(timeout_seconds), int(max_length), float(temperature),
+            )
+            if not picks:
+                picks = None
+        else:
+            # Single montage of the sharpest shortlist.
+            shortlist = self._shortlist(total, max(remaining, int(candidates)), keep_first_frame)
+            if sharpness_gate:
+                shortlist = self._gate_sharp(images, shortlist, max(6, remaining * 2))
+            pils = _tensor_to_pils(images[shortlist])
+            if clip is not None:
+                # The workflow carries its own vision model; never reach for an
+                # external server. If the CLIP fails, fall back to scoring.
+                try:
+                    text, note = _clip_pick(
+                        clip, pils, remaining, subject_hint, selection_brief,
+                        int(max_length), float(temperature),
+                    )
+                    picks = _parse_picks(text, len(pils))
+                except Exception as exc:
+                    note = f"in-graph CLIP failed ({type(exc).__name__})"
+                    picks = None
+            else:
+                picks, note = _vlm_pick(
+                    pils, remaining, subject_hint, _llm_base_url(llm_url),
+                    int(timeout_seconds), selection_brief,
+                )
+            if picks:
+                picks = [shortlist[i] for i in picks]
+
+        # Merge: anchor frame first, then the forced per-shot views, then the
+        # vision picks, capped at count.
+        ordered: list[int] = []
+        if keep_first_frame and total > 1:
+            ordered.append(0)
+        ordered += sorted(forced)
+        ordered += picks or []
+
+        picked_list: list[int] = []
+        for index in ordered:
+            if index not in picked_list:
+                picked_list.append(index)
+            if len(picked_list) >= count:
+                break
+        # A model that under-returned still gave us its good ones; fill the
+        # remainder by spread rather than discarding its judgement.
+        if len(picked_list) < count:
+            for index in _greedy_spread(images, count, sharpness_weight, keep_first_frame):
+                if index not in picked_list:
+                    picked_list.append(index)
+                if len(picked_list) >= count:
+                    break
+        picked = sorted(picked_list)
+
+        if picks:
+            if forced:
+                method = (f"per-shot{found} + multi-board" if boards >= 2
+                          else f"per-shot{found} + vision model")
+            else:
+                method = f"{'multi-board' if boards >= 2 else 'vision model'} — {note}"
+        elif forced:
+            method = (f"per-shot{found} + spread (fallback: {note})" if note
+                      else f"per-shot{found} + spread")
+        else:
+            method = f"sharpness+spread (fallback: {note})" if note else "sharpness+spread"
+        return (images[picked], self._report(method, picked, total))
+
+    def _judge(self, pils, count, clip, hint, brief, llm_url, timeout,
+               max_length, temperature):
+        """Ask whichever vision path is wired to pick `count` frames from `pils`."""
+        if clip is not None:
+            try:
+                text, note = _clip_pick(clip, pils, count, hint, brief,
+                                        int(max_length), float(temperature))
+                return _parse_picks(text, len(pils)), note
+            except Exception as exc:
+                return None, f"in-graph CLIP failed ({type(exc).__name__})"
+        return _vlm_pick(pils, count, hint, _llm_base_url(llm_url),
+                         int(timeout), brief)
+
+    def _board_scan(self, images, boards, per_board, clip, hint, brief,
+                    llm_url, timeout, max_length, temperature):
+        """Judge the whole timeline through several readable montages.
+
+        One numbered board per time sector, each capped at 16 sharp tiles so
+        every tile stays readable, then one vision call per board. Together the
+        boards cover the full move and every sector contributes picks, so no
+        part of the orbit is invisible to the model the way a single board is.
+        """
+        total = images.shape[0]
+        sharp = _sharpness(images)
+        ordered_picks: list[int] = []
+        notes: list[str] = []
+        for b in range(boards):
+            start = int(round(b * total / boards))
+            end = int(round((b + 1) * total / boards))
+            bucket = list(range(start, end))
+            if len(bucket) < 2:
+                continue
+            gate_n = min(16, len(bucket))
+            order = sorted(bucket, key=lambda i: float(sharp[i]), reverse=True)
+            keep = sorted(order[:gate_n])
+            pils = _tensor_to_pils(images[keep])
+            board_picks, note = self._judge(
+                pils, per_board, clip, hint, brief,
+                llm_url, timeout, max_length, temperature,
+            )
+            notes.append(note)
+            if board_picks:
+                ordered_picks.extend(keep[i] for i in board_picks[:per_board])
+        seen, out = set(), []
+        for index in ordered_picks:
+            if index not in seen:
+                seen.add(index)
+                out.append(index)
+        return out, "; ".join(n for n in notes if n)
+
+    @staticmethod
+    def _segments(images, shots, detect=True):
+        """Split the timeline into `shots` segments, one per shot.
+
+        Equal time slices are the obvious approach and the wrong one: they
+        assume the model cut at exactly the seconds the prompt asked for, and
+        it does not. A shot that runs long pushes the next one past its slice
+        boundary, so one slice samples the previous view a second time and a
+        whole angle — usually a profile — never reaches the sheet.
+
+        So find the cuts instead of guessing them. A hard cut changes most of
+        the frame at once, which is a large spike in consecutive-frame distance
+        against an otherwise near-still shot; the `shots - 1` biggest spikes,
+        kept apart by a minimum shot length, are the cuts. Falls back to equal
+        slices when the spikes are not there to be found (a continuous move, or
+        a video that genuinely never cut).
+        """
+        total = int(images.shape[0])
+        even = [
+            (int(round(i * total / shots)), int(round((i + 1) * total / shots)))
+            for i in range(shots)
+        ]
+        if not detect or shots < 2 or total < shots * 3:
+            return even, []
+
+        # Brightness kept in (no contrast normalising): a cut to a different
+        # view changes exposure and layout together, and both are signal here.
+        gray = images.mean(dim=3).unsqueeze(1)
+        small = F.interpolate(gray, size=(32, 32), mode="area").view(total, -1)
+
+        min_shot = max(2, total // (shots * 3))
+
+        # Compare a window before the boundary against a window after it, not
+        # one frame against the next. A single blurred frame — and the move has
+        # several — spikes an adjacent-frame difference exactly as hard as a cut
+        # does, but it does not change what comes after it. A cut does, and only
+        # a cut still shows across the gap once the blurred frame is averaged in
+        # with its neighbours.
+        window = max(2, min(4, min_shot))
+        delta = torch.zeros(total)
+        for b in range(window, total - window):
+            before = small[b - window:b].mean(dim=0)
+            after = small[b:b + window].mean(dim=0)
+            delta[b] = (before - after).abs().mean()
+
+        # A cut has to stand out from the shot's own noise, not merely be the
+        # largest number present — otherwise a still video invents cuts.
+        # Measured against the median absolute deviation, not the standard
+        # deviation: the cuts are themselves the biggest numbers in the series,
+        # so they inflate a standard deviation enough to hide the smallest real
+        # cut behind it. A MAD ignores them, and the gap it exposes is not
+        # marginal — real cuts land three orders of magnitude above the noise,
+        # so the exact threshold below barely matters.
+        core = delta[window:total - window]
+        median = float(core.median())
+        mad = float((core - core.median()).abs().median()) * 1.4826 + 1e-9
+
+        ranked = sorted(range(total), key=lambda i: float(delta[i]), reverse=True)
+        cuts: list[int] = []
+        for boundary in ranked:
+            if len(cuts) >= shots - 1:
+                break
+            if (float(delta[boundary]) - median) / mad < 20.0:
+                break
+            if boundary < min_shot or total - boundary < min_shot:
+                continue
+            if any(abs(boundary - c) < min_shot for c in cuts):
+                continue
+            cuts.append(boundary)
+
+        if len(cuts) != shots - 1:
+            # Partial detection is worse than none: it would leave two real
+            # views sharing one segment while splitting another in half.
+            return even, sorted(cuts)
+
+        cuts.sort()
+        bounds = [0] + cuts + [total]
+        return list(zip(bounds, bounds[1:])), cuts
+
+    @staticmethod
+    def _per_view(images, views):
+        """One sharp frame per distinct view, found by appearance not by time.
+
+        The sheet's real requirement is `views` frames that each show something
+        different, and clustering states exactly that. Within a cluster the
+        sharpest frame wins, which is the same rule the per-shot path uses —
+        the only change is how the group was formed.
+
+        Asking for k clusters, though, always yields k of them, whether or not
+        the video holds that many different views. When a take under-delivers —
+        the model lingers on one subject for three of its shots instead of
+        moving on — k-means splits that one long view into slices, and the
+        sheet fills with the same picture three times over. That is not a
+        selection failure and no picker can fix it, so it is measured and
+        reported instead: representatives closer to each other than a fraction
+        of the sheet's own spread are counted as one view, and the caller is
+        told how many genuinely distinct views the video actually contained.
+
+        Returns (frame indices, distinct view count).
+        """
+        sharp = _sharpness(images)
+        groups = [g for g in _cluster_views(images, views) if g]
+        picks = [max(group, key=lambda f: float(sharp[f])) for group in groups]
+        picks = sorted(set(picks))
+        if len(picks) < 2:
+            return picks, len(picks)
+
+        # Scale-free threshold: near-duplicate relative to how far apart this
+        # sheet's own views are, since absolute distances mean nothing across
+        # a studio backdrop and a night exterior.
+        desc = _view_descriptors(images)[picks]
+        gaps = torch.cdist(desc, desc)
+        span = float(gaps.max())
+        tau = 0.35 * span
+
+        # Biggest clusters first: a view the video actually dwelt on is the
+        # real one, and the slivers split off it are the duplicates.
+        order = sorted(range(len(picks)), key=lambda i: -len(groups[i]))
+        distinct: list[int] = []
+        for i in order:
+            if all(float(gaps[i, j]) >= tau for j in distinct):
+                distinct.append(i)
+
+        return picks, len(distinct)
+
+    @staticmethod
+    def _per_shot(images, shots, detect=True):
+        """One sharp frame per shot.
+
+        For a hard-cut turnaround every shot is a distinct static view, so the
+        sharpest frame of each shot's central region is its best
+        representative — the sheet's full set of views is guaranteed without
+        trusting a vision model to find them. The central region skips the
+        frames near each cut, which can be a cross-blend of two shots.
+        """
+        sharp = _sharpness(images)
+        segments, cuts = LumosFrameSelect._segments(images, shots, detect)
+        out = []
+        for start, end in segments:
+            span = max(1, end - start)
+            c0 = start + span // 5
+            c1 = start + 4 * span // 5
+            candidates = list(range(c0, max(c0 + 1, c1)))
+            out.append(max(candidates, key=lambda f: float(sharp[f])))
+        return sorted(set(out)), cuts
+
+    @staticmethod
+    def _gate_sharp(images, indices, keep_n):
+        """Keep only the sharpest frames of a shortlist, at most keep_n.
+
+        An orbit spends part of its arc mid-motion, and those frames are soft.
+        Showing them to the vision model wastes its judgement; filtering them
+        out first is exactly the kind of mechanical check a Laplacian does
+        better than a model.
+        """
+        if len(indices) <= keep_n:
+            return indices
+        sharp = _sharpness(images)
+        order = sorted(indices, key=lambda i: float(sharp[i]), reverse=True)
+        return sorted(order[:keep_n])
 
     @staticmethod
     def _shortlist(total: int, wanted: int, keep_first: bool) -> list[int]:
@@ -838,7 +1659,7 @@ NODE_CLASS_MAPPINGS = {
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
-    "OrbitSheetsLocationPrompt": "Location Orbit Prompt (H3)",
+    "OrbitSheetsLocationPrompt": "Location Sheet Prompt (H3)",
     "OrbitSheetsCharacterPrompt": "Character Turnaround Prompt (H3)",
     "OrbitSheetsFrameSelect": "Frame Select (vision-judged)",
     "OrbitSheetsContactSheet": "Contact Sheet",

@@ -8,15 +8,6 @@
       "title": "Text String (User Prompt)"
     }
   },
-  "11": {
-    "class_type": "PrimitiveStringMultiline",
-    "inputs": {
-      "value": "Cinematic, live-action, photographic"
-    },
-    "_meta": {
-      "title": "Visual style"
-    }
-  },
   "20": {
     "class_type": "UNETLoader",
     "inputs": {
@@ -47,42 +38,11 @@
       "title": "Krea2 VAE"
     }
   },
-  "23": {
-    "class_type": "StringConcatenate",
-    "inputs": {
-      "string_a": [
-        "11",
-        0
-      ],
-      "string_b": [
-        "10",
-        0
-      ],
-      "delimiter": ". "
-    },
-    "_meta": {
-      "title": "Style + subject"
-    }
-  },
-  "24": {
-    "class_type": "StringConcatenate",
-    "inputs": {
-      "string_a": [
-        "23",
-        0
-      ],
-      "string_b": "empty of people and vehicles, no text, no watermark",
-      "delimiter": ", "
-    },
-    "_meta": {
-      "title": "Krea2 prompt"
-    }
-  },
   "25": {
     "class_type": "CLIPTextEncode",
     "inputs": {
       "text": [
-        "24",
+        "10",
         0
       ],
       "clip": [
@@ -109,8 +69,8 @@
   "27": {
     "class_type": "EmptyLatentImage",
     "inputs": {
-      "width": 960,
-      "height": 544,
+      "width": 1920,
+      "height": 1080,
       "batch_size": 1
     },
     "_meta": {
@@ -170,19 +130,19 @@
         "10",
         0
       ],
-      "visual_style": [
-        "11",
-        0
-      ],
+      "visual_style": "",
       "space": "interior",
-      "orbit_direction": "clockwise",
-      "amplitude": "large amplitude",
-      "speed": "slow speed",
       "time_of_day": "",
-      "ambient_sound": ""
+      "ambient_sound": "",
+      "wide_establishing_shot": false,
+      "detail_shot": false,
+      "shot_seconds": 1.0,
+      "coverage": "cut views",
+      "rotation": "auto (as far as the take allows)",
+      "take_seconds": 5.0
     },
     "_meta": {
-      "title": "Orbit prompt (H3 spec)"
+      "title": "Location sheet prompt (H3 spec)"
     }
   },
   "40": {
@@ -284,9 +244,9 @@
         "30",
         0
       ],
-      "width": 960,
-      "height": 544,
-      "length": 260,
+      "width": 1216,
+      "height": 672,
+      "length": 124,
       "first_frame": [
         "29",
         0
@@ -387,10 +347,10 @@
         "50",
         0
       ],
-      "count": 8,
+      "count": 6,
       "mode": "vision_llm",
-      "candidates": 20,
-      "keep_first_frame": true,
+      "candidates": 32,
+      "keep_first_frame": false,
       "subject_hint": [
         "10",
         0
@@ -399,7 +359,17 @@
       "sharpness_weight": 0.35,
       "free_vram_first": true,
       "llm_url": "",
-      "timeout_seconds": 300
+      "timeout_seconds": 300,
+      "clip": [
+        "21",
+        0
+      ],
+      "sharpness_gate": true,
+      "max_length": 400,
+      "temperature": 0.2,
+      "shots": 6,
+      "boards": 1,
+      "shot_split": "views (by content)"
     },
     "_meta": {
       "title": "Select frames"
@@ -412,7 +382,7 @@
         "60",
         0
       ],
-      "columns": 4,
+      "columns": 2,
       "cell_width": 512,
       "padding": 8,
       "label_frames": false,
@@ -445,6 +415,47 @@
     },
     "_meta": {
       "title": "Selection report"
+    }
+  },
+  "75": {
+    "class_type": "PreviewImage",
+    "inputs": {
+      "images": [
+        "29",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Anchor preview"
+    }
+  },
+  "76": {
+    "class_type": "CreateVideo",
+    "inputs": {
+      "images": [
+        "50",
+        0
+      ],
+      "fps": 24,
+      "bit_depth": 8
+    },
+    "_meta": {
+      "title": "Create video"
+    }
+  },
+  "77": {
+    "class_type": "SaveVideo",
+    "inputs": {
+      "video": [
+        "76",
+        0
+      ],
+      "filename_prefix": "video/OrbitSheets",
+      "format": "auto",
+      "codec": "auto"
+    },
+    "_meta": {
+      "title": "Save video"
     }
   }
 }

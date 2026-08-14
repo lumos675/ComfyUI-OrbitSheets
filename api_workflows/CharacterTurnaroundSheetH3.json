@@ -2,19 +2,10 @@
   "10": {
     "class_type": "PrimitiveStringMultiline",
     "inputs": {
-      "value": "A 30-year-old woman with cropped black hair, olive skin, wearing a charcoal wool coat over a white shirt"
+      "value": "A photography of full body of a beautiful blonde american woman with blue eyes age 25 with beautiful body shape wearing a beautiful dress."
     },
     "_meta": {
       "title": "Text String (User Prompt)"
-    }
-  },
-  "11": {
-    "class_type": "PrimitiveStringMultiline",
-    "inputs": {
-      "value": "Cinematic, live-action, photographic"
-    },
-    "_meta": {
-      "title": "Visual style"
     }
   },
   "20": {
@@ -47,42 +38,11 @@
       "title": "Krea2 VAE"
     }
   },
-  "23": {
-    "class_type": "StringConcatenate",
-    "inputs": {
-      "string_a": [
-        "11",
-        0
-      ],
-      "string_b": [
-        "10",
-        0
-      ],
-      "delimiter": ". "
-    },
-    "_meta": {
-      "title": "Style + subject"
-    }
-  },
-  "24": {
-    "class_type": "StringConcatenate",
-    "inputs": {
-      "string_a": [
-        "23",
-        0
-      ],
-      "string_b": "full body from head to toe, standing straight facing the camera, arms relaxed at sides, neutral expression, plain seamless neutral grey studio backdrop, even soft lighting, no props, no text, no watermark",
-      "delimiter": ", "
-    },
-    "_meta": {
-      "title": "Krea2 prompt"
-    }
-  },
   "25": {
     "class_type": "CLIPTextEncode",
     "inputs": {
       "text": [
-        "24",
+        "80",
         0
       ],
       "clip": [
@@ -109,8 +69,8 @@
   "27": {
     "class_type": "EmptyLatentImage",
     "inputs": {
-      "width": 544,
-      "height": 960,
+      "width": 1920,
+      "height": 1080,
       "batch_size": 1
     },
     "_meta": {
@@ -170,18 +130,15 @@
         "10",
         0
       ],
-      "visual_style": [
-        "11",
-        0
-      ],
-      "orbit_direction": "clockwise",
-      "end_on_closeup": true,
       "backdrop": "plain seamless neutral grey studio backdrop",
       "spoken_line": "Hello. My name is written in the story we are about to tell, and this is how my voice sounds when I speak plainly.",
       "voice_description": "",
       "language": "English",
       "silent_during_closeup": true,
-      "ambient_sound": ""
+      "ambient_sound": "",
+      "framing": "full body, generous margin",
+      "scared_shot": true,
+      "shot_seconds": 0.75
     },
     "_meta": {
       "title": "Turnaround prompt (H3 spec)"
@@ -286,9 +243,9 @@
         "30",
         0
       ],
-      "width": 544,
-      "height": 960,
-      "length": 260,
+      "width": 1216,
+      "height": 672,
+      "length": 124,
       "first_frame": [
         "29",
         0
@@ -389,19 +346,29 @@
         "50",
         0
       ],
-      "count": 8,
+      "count": 6,
       "mode": "vision_llm",
-      "candidates": 20,
-      "keep_first_frame": true,
+      "candidates": 32,
+      "keep_first_frame": false,
       "subject_hint": [
         "10",
         0
       ],
-      "selection_brief": "Choose exactly one tight face close-up, and 7 full-body views at clearly different angles around the figure (front, three-quarter, side profile, rear three-quarter, back).\nPrefer: sharp frames; the whole figure in frame head to toe for the full-body views; angles spread evenly around the circle.\nReject: motion-blurred frames; two views from nearly the same angle; full-body frames where the feet or head are cut off; mid-push frames that are neither a clean full body nor a clean close-up; any frame where the mouth is caught open mid-speech.\nFor the close-up in particular, the mouth must be closed and the expression neutral.",
+      "selection_brief": "Only used if count is raised above the shot count. Pick additional sharp, well-formed frames that add a genuinely different angle; the six main views (full-body front, face close-up, left profile, right profile, rear, frightened face) are already selected, one per shot.\n\nPrefer: sharp frames; anatomically correct figures with clear, natural eyes and well-formed features.\n\nReject: near-duplicates of a view already selected; motion-blurred frames; frames with bad, distorted, or asymmetrical eyes; frames with broken anatomy, warping, or bad hands/limbs; frames caught mid-cut between two shots; any frame where the mouth is caught open mid-speech.",
       "sharpness_weight": 0.35,
       "free_vram_first": true,
       "llm_url": "",
-      "timeout_seconds": 300
+      "timeout_seconds": 300,
+      "clip": [
+        "21",
+        0
+      ],
+      "sharpness_gate": true,
+      "max_length": 400,
+      "temperature": 0.2,
+      "shots": 6,
+      "boards": 1,
+      "shot_split": "views (by content)"
     },
     "_meta": {
       "title": "Select frames"
@@ -414,7 +381,7 @@
         "60",
         0
       ],
-      "columns": 4,
+      "columns": 2,
       "cell_width": 512,
       "padding": 8,
       "label_frames": false,
@@ -485,6 +452,65 @@
     },
     "_meta": {
       "title": "SaveAudio"
+    }
+  },
+  "75": {
+    "class_type": "PreviewImage",
+    "inputs": {
+      "images": [
+        "29",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Anchor preview"
+    }
+  },
+  "76": {
+    "class_type": "CreateVideo",
+    "inputs": {
+      "images": [
+        "50",
+        0
+      ],
+      "audio": [
+        "52",
+        0
+      ],
+      "fps": 24,
+      "bit_depth": 8
+    },
+    "_meta": {
+      "title": "Create video"
+    }
+  },
+  "77": {
+    "class_type": "SaveVideo",
+    "inputs": {
+      "video": [
+        "76",
+        0
+      ],
+      "filename_prefix": "video/OrbitSheets",
+      "format": "auto",
+      "codec": "auto"
+    },
+    "_meta": {
+      "title": "Save video"
+    }
+  },
+  "80": {
+    "class_type": "StringConcatenate",
+    "inputs": {
+      "string_a": [
+        "10",
+        0
+      ],
+      "string_b": "plain seamless neutral grey studio backdrop, even soft lighting, no props, no text, no watermark",
+      "delimiter": ", "
+    },
+    "_meta": {
+      "title": "Krea2 backdrop"
     }
   }
 }
